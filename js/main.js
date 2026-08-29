@@ -1,7 +1,12 @@
 // ============================================================
 //  L'ÎLE OUBLIÉE — jeu d'aventure three.js mobile-first
-//  Explore l'île, parle au Sage, collecte 5 cristaux,
-//  ouvre le temple ancien.
+//
+//  Acte 1 : explore l'île, parle au Sage, collecte 5 cristaux,
+//           ouvre le temple ancien.
+//  Acte 2 : l'Épée de Lumière, la nuit des Brumes, les spectres,
+//           les 4 braseros sacrés et le Gardien des Brumes.
+//
+//  Sauvegarde automatique en localStorage.
 // ============================================================
 import * as THREE from 'three';
 
@@ -12,6 +17,8 @@ const ISLAND_R = 62;        // rayon de l'île
 const WALK_R = 56;          // rayon max du joueur
 const PLAYER_SPEED = 6.2;
 const CRYSTAL_COUNT = 5;
+const MAX_HEARTS = 5;
+const SAVE_KEY = 'ile-oubliee-save-v2';
 
 // ------------------------------------------------------------
 //  Terrain : hauteur procédurale (île avec collines)
@@ -57,6 +64,31 @@ sun.shadow.bias = -0.0015;
 scene.add(sun);
 
 // ------------------------------------------------------------
+//  Jour / Nuit (les Brumes de l'acte 2)
+// ------------------------------------------------------------
+const MOOD = {
+  daySky: new THREE.Color(0x87c5ea), nightSky: new THREE.Color(0x0c1730),
+  dayFog: new THREE.Color(0x9fd2ee), nightFog: new THREE.Color(0x182440),
+  daySun: new THREE.Color(0xfff2d0), nightSun: new THREE.Color(0x8fa8ff),
+  dayWater: new THREE.Color(0x2f7fc4), nightWater: new THREE.Color(0x142c48),
+};
+let night01 = 0;      // 0 = jour, 1 = nuit
+let nightTarget = 0;
+let moon;
+
+function applyMood() {
+  scene.background.lerpColors(MOOD.daySky, MOOD.nightSky, night01);
+  scene.fog.color.lerpColors(MOOD.dayFog, MOOD.nightFog, night01);
+  scene.fog.near = 55 - night01 * 25;
+  scene.fog.far = 150 - night01 * 60;
+  hemi.intensity = 0.85 - night01 * 0.55;
+  sun.intensity = 1.5 - night01 * 1.1;
+  sun.color.lerpColors(MOOD.daySun, MOOD.nightSun, night01);
+  waterMat.color.lerpColors(MOOD.dayWater, MOOD.nightWater, night01);
+  if (moon) moon.material.opacity = night01 * 0.95;
+}
+
+// ------------------------------------------------------------
 //  Terrain maillé + couleurs par altitude
 // ------------------------------------------------------------
 {
@@ -89,11 +121,9 @@ scene.add(sun);
 }
 
 // Océan
+const waterMat = new THREE.MeshLambertMaterial({ color: 0x2f7fc4, transparent: true, opacity: 0.88 });
 {
-  const water = new THREE.Mesh(
-    new THREE.CircleGeometry(220, 48),
-    new THREE.MeshLambertMaterial({ color: 0x2f7fc4, transparent: true, opacity: 0.88 })
-  );
+  const water = new THREE.Mesh(new THREE.CircleGeometry(220, 48), waterMat);
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   scene.add(water);
@@ -123,11 +153,13 @@ function randSpot(minR, maxR, minH) {
   }
   return null;
 }
-// zones réservées (spawn, sage, temple) où le décor ne pousse pas
+// zones réservées (spawn, sage, temple, braseros) où le décor ne pousse pas
+const BRAZIER_SPOTS = [[34, 6], [-30, 10], [-20, -30], [26, -20]];
 const reserved = [
   { x: 0, z: 10, r: 7 },   // spawn
   { x: 4, z: 3, r: 4 },    // sage
   { x: 0, z: -38, r: 12 }, // temple
+  ...BRAZIER_SPOTS.map(([x, z]) => ({ x, z, r: 4 })),
 ];
 function nearReserved(x, z) {
   return reserved.some(s => (x - s.x) ** 2 + (z - s.z) ** 2 < s.r * s.r);
@@ -250,6 +282,17 @@ const clouds = [];
   }
 }
 
+// Lune (visible la nuit)
+{
+  moon = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture(), color: 0xeef2ff, transparent: true,
+    opacity: 0, depthWrite: false,
+  }));
+  moon.scale.setScalar(26);
+  moon.position.set(-70, 75, -90);
+  scene.add(moon);
+}
+
 // ------------------------------------------------------------
 //  Personnages
 // ------------------------------------------------------------
@@ -291,7 +334,25 @@ const player = makeCharacter({ shirt: 0xd95a3c, pants: 0x35506e, skin: 0xf0c49b 
 player.position.set(0, terrainH(0, 10), 10);
 player.rotation.y = Math.PI; // face au Sage
 scene.add(player);
-const pState = { angle: Math.PI, speed: 0, bob: 0 };
+const pState = { angle: Math.PI, bob: 0 };
+
+// Épée de Lumière (invisible avant l'acte 2), attachée au bras droit
+const sword = new THREE.Group();
+{
+  const blade = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 1.05, 0.045),
+    new THREE.MeshLambertMaterial({ color: 0xdfe9ff, emissive: 0x5a7ad8 })
+  );
+  blade.position.y = -0.85;
+  const guard = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.06, 0.09),
+    new THREE.MeshLambertMaterial({ color: 0xc9a24a, emissive: 0x3a2a08 })
+  );
+  guard.position.y = -0.3;
+  sword.add(blade, guard);
+  sword.visible = false;
+  player.userData.limbs.armR.add(sword);
+}
 
 // Le Sage
 const sage = makeCharacter({ shirt: 0x6d5aa8, pants: 0x4a3f75, skin: 0xe8bd92, hat: 0x54468f });
@@ -323,7 +384,7 @@ colliders.push({ x: sage.position.x, z: sage.position.z, r: 0.7 });
 //  Le temple ancien
 // ------------------------------------------------------------
 const temple = new THREE.Group();
-let templeDoor;
+let templeDoor, treasureRef;
 {
   const stone = new THREE.MeshLambertMaterial({ color: 0xb8b0a0 });
   const stoneDark = new THREE.MeshLambertMaterial({ color: 0x8f8878 });
@@ -361,14 +422,13 @@ let templeDoor;
   templeDoor.position.set(0, 3.8, 4.2);
   temple.add(templeDoor);
 
-  // trésor caché (révélé à la fin)
-  const treasure = new THREE.Mesh(
+  // trésor (révélé quand la porte s'ouvre)
+  treasureRef = new THREE.Mesh(
     new THREE.IcosahedronGeometry(0.9, 1),
     new THREE.MeshLambertMaterial({ color: 0xffe27a, emissive: 0xcf9d2a })
   );
-  treasure.position.set(0, 2.6, 0);
-  treasure.name = 'treasure';
-  temple.add(treasure);
+  treasureRef.position.set(0, 2.6, 0);
+  temple.add(treasureRef);
 
   const th = terrainH(0, -38);
   temple.position.set(0, th, -38);
@@ -383,7 +443,7 @@ const doorSpot = new THREE.Vector3(0, 0, -38 + 6.5); // point d'interaction deva
 let doorOpenAnim = 0;
 
 // ------------------------------------------------------------
-//  Cristaux
+//  Cristaux (acte 1)
 // ------------------------------------------------------------
 const crystals = [];
 {
@@ -400,7 +460,6 @@ const crystals = [];
     const h = Math.max(terrainH(x, z), 0.3);
     m.position.set(x, h + 1.2, z);
     m.castShadow = true;
-    // halo
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
       map: makeGlowTexture(), color: 0x9fe0ff, transparent: true,
       opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -421,8 +480,7 @@ function makeGlowTexture() {
   grad.addColorStop(1, 'rgba(160,220,255,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 64, 64);
-  const tex = new THREE.CanvasTexture(c);
-  return tex;
+  return new THREE.CanvasTexture(c);
 }
 
 // Panneau indicateur au spawn
@@ -440,7 +498,116 @@ function makeGlowTexture() {
 }
 
 // ------------------------------------------------------------
-//  Particules d'effets (collecte, victoire)
+//  Braseros sacrés (acte 2)
+// ------------------------------------------------------------
+const braziers = [];
+{
+  const bowlMat = new THREE.MeshLambertMaterial({ color: 0x555560 });
+  const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c3f26 });
+  for (let i = 0; i < BRAZIER_SPOTS.length; i++) {
+    const [x, z] = BRAZIER_SPOTS[i];
+    const h = Math.max(terrainH(x, z), 0.3);
+    const g = new THREE.Group();
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.3, 1.0, 8), bowlMat);
+    foot.position.y = 0.5;
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.35, 0.45, 10), bowlMat);
+    bowl.position.y = 1.15;
+    const wood = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), woodMat);
+    wood.position.y = 1.35; wood.scale.y = 0.5;
+    // flamme (cachée tant que non allumé)
+    const flame = new THREE.Group();
+    const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.9, 8),
+      new THREE.MeshLambertMaterial({ color: 0xffb03a, emissive: 0xff7a10, transparent: true, opacity: 0.95 }));
+    f1.position.y = 1.85;
+    const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 8),
+      new THREE.MeshLambertMaterial({ color: 0xfff0a0, emissive: 0xffc040 }));
+    f2.position.y = 2.0;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: 0xffb050, transparent: true,
+      opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    glow.scale.setScalar(4);
+    glow.position.y = 1.9;
+    flame.add(f1, f2, glow);
+    flame.visible = false;
+    g.add(foot, bowl, wood, flame);
+    g.position.set(x, h, z);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    scene.add(g);
+    colliders.push({ x, z, r: 0.7 });
+    braziers.push({ group: g, flame, lit: false, x, z });
+  }
+}
+function litCount() { return braziers.filter(b => b.lit).length; }
+
+// ------------------------------------------------------------
+//  Spectres & Gardien (acte 2)
+// ------------------------------------------------------------
+const enemies = [];
+function makeSpectre(boss = false) {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({
+    color: boss ? 0xd8b8c8 : 0xc4bcf2,
+    emissive: boss ? 0x8a2a3a : 0x4a3f9a,
+    transparent: true, opacity: 0.82,
+  });
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.6, 8), bodyMat);
+  body.position.y = 0.8; body.rotation.x = Math.PI; // pointe vers le bas
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), bodyMat);
+  head.position.y = 1.75;
+  const eyeMat = new THREE.MeshBasicMaterial({ color: boss ? 0xff4040 : 0x7ae8ff });
+  const eyeGeo = new THREE.SphereGeometry(0.07, 6, 6);
+  const e1 = new THREE.Mesh(eyeGeo, eyeMat); e1.position.set(0.15, 1.82, 0.36);
+  const e2 = new THREE.Mesh(eyeGeo, eyeMat); e2.position.set(-0.15, 1.82, 0.36);
+  const armGeo = new THREE.CapsuleGeometry(0.08, 0.5, 3, 6);
+  const a1 = new THREE.Mesh(armGeo, bodyMat); a1.position.set(0.55, 1.2, 0.1); a1.rotation.z = -0.5;
+  const a2 = new THREE.Mesh(armGeo, bodyMat); a2.position.set(-0.55, 1.2, 0.1); a2.rotation.z = 0.5;
+  g.add(body, head, e1, e2, a1, a2);
+  if (boss) {
+    const crown = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.42, 0.35, 6, 1, true),
+      new THREE.MeshLambertMaterial({ color: 0x8a8a95, emissive: 0x2a2a35, side: THREE.DoubleSide })
+    );
+    crown.position.y = 2.15;
+    g.add(crown);
+    g.scale.setScalar(2.1);
+  }
+  return { group: g, mats: [bodyMat] };
+}
+function spawnSpectre(x, z, boss = false) {
+  const { group, mats } = makeSpectre(boss);
+  group.position.set(x, Math.max(terrainH(x, z), 0.05) + 0.55, z);
+  scene.add(group);
+  const e = {
+    group, mats, boss,
+    hp: boss ? 6 : 1,
+    speed: boss ? 3.4 : 2.6,
+    aggro: boss ? 40 : 11,
+    phase: Math.random() * 6.28,
+    home: { x, z },
+    dying: null, dead: false,
+  };
+  enemies.push(e);
+  return e;
+}
+let bossRef = null;
+function spawnEnemies() {
+  for (const b of braziers) {
+    if (b.lit) continue;
+    spawnSpectre(b.x + 2.5, b.z + 1.5);
+    spawnSpectre(b.x - 2, b.z - 2.5);
+  }
+  spawnSpectre(12, -12);
+  spawnSpectre(-10, -20);
+}
+function spawnBoss() {
+  bossRef = spawnSpectre(0, -26, true);
+  toast('Le Gardien des Brumes apparaît !');
+  sfx.boss();
+}
+
+// ------------------------------------------------------------
+//  Particules d'effets (collecte, combat, victoire)
 // ------------------------------------------------------------
 const bursts = [];
 function spawnBurst(pos, color, count = 26, speed = 5) {
@@ -515,6 +682,11 @@ const sfx = {
   collect: () => { tone(660, 0.12, 'sine', 0.2); tone(880, 0.14, 'sine', 0.18, 0.09); tone(1320, 0.2, 'sine', 0.14, 0.18); },
   quest: () => { tone(523, 0.15, 'triangle', 0.16); tone(659, 0.15, 'triangle', 0.16, 0.12); tone(784, 0.25, 'triangle', 0.16, 0.24); },
   door: () => { tone(120, 0.7, 'sawtooth', 0.12); tone(90, 0.9, 'sawtooth', 0.1, 0.15); },
+  swing: () => { tone(300, 0.07, 'sawtooth', 0.09); tone(190, 0.09, 'sawtooth', 0.07, 0.04); },
+  hit: () => { tone(520, 0.06, 'square', 0.14); tone(260, 0.1, 'square', 0.1, 0.04); },
+  hurt: () => { tone(140, 0.22, 'sawtooth', 0.2); tone(90, 0.3, 'sawtooth', 0.16, 0.08); },
+  brazier: () => { tone(220, 0.25, 'triangle', 0.16); tone(330, 0.3, 'sine', 0.14, 0.12); tone(440, 0.4, 'sine', 0.12, 0.24); },
+  boss: () => { tone(80, 0.6, 'sawtooth', 0.22); tone(60, 0.8, 'sawtooth', 0.18, 0.2); tone(110, 0.5, 'square', 0.1, 0.4); },
   victory: () => {
     const notes = [523, 659, 784, 1047, 784, 1047, 1319];
     notes.forEach((n, i) => tone(n, 0.22, 'triangle', 0.18, i * 0.14));
@@ -522,14 +694,21 @@ const sfx = {
 };
 
 // ------------------------------------------------------------
-//  État de la quête + dialogues
+//  État de la quête + UI
 // ------------------------------------------------------------
-const quest = { stage: 'intro', collected: 0, startTime: 0 };
+// stages : intro → collect → temple → opening → braziers → boss → dawn → done
+const quest = { stage: 'intro', collected: 0, startTime: 0, priorMs: 0 };
+let hearts = MAX_HEARTS;
+let invulnUntil = 0;
+let attackT = 0;
+
 const ui = {
   banner: document.getElementById('questBanner'),
   counter: document.getElementById('counter'),
   counterTxt: document.getElementById('counterTxt'),
   actionBtn: document.getElementById('actionBtn'),
+  attackBtn: document.getElementById('attackBtn'),
+  hearts: document.getElementById('hearts'),
   dialogue: document.getElementById('dialogue'),
   dlgSpeaker: document.getElementById('dlgSpeaker'),
   dlgText: document.getElementById('dlgText'),
@@ -548,7 +727,47 @@ function toast(msg) {
     ui.toast.style.transform = 'translate(-50%,-50%)';
   }, 1600);
 }
+function renderHearts() {
+  ui.hearts.textContent = '❤️'.repeat(hearts) + '🖤'.repeat(MAX_HEARTS - hearts);
+}
+function brazierBanner() {
+  setBanner(`🔥 Rallume les <b>braseros sacrés</b> — ${litCount()} / ${braziers.length}`);
+}
+function bossBanner() {
+  const hp = bossRef && !bossRef.dead ? bossRef.hp : 0;
+  setBanner(`⚔️ Terrasse le <b>Gardien des Brumes</b> ! ${'🔺'.repeat(Math.max(hp, 0))}`);
+}
+function playMs() {
+  return quest.priorMs + (quest.startTime ? performance.now() - quest.startTime : 0);
+}
 
+// ------------------------------------------------------------
+//  Sauvegarde (localStorage)
+// ------------------------------------------------------------
+function saveGame(stage) {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      v: 2,
+      stage,
+      taken: crystals.map((c, i) => c.taken ? i : -1).filter(i => i >= 0),
+      lit: braziers.map((b, i) => b.lit ? i : -1).filter(i => i >= 0),
+      playMs: playMs(),
+    }));
+  } catch (e) { /* stockage indisponible : on joue sans sauvegarde */ }
+}
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+    return (s && s.v === 2 && s.stage && s.stage !== 'done') ? s : null;
+  } catch (e) { return null; }
+}
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+}
+
+// ------------------------------------------------------------
+//  Dialogues
+// ------------------------------------------------------------
 const DIALOGUES = {
   sageIntro: {
     speaker: 'Le Sage',
@@ -560,11 +779,12 @@ const DIALOGUES = {
     ],
     onEnd: () => {
       quest.stage = 'collect';
-      quest.startTime = performance.now();
+      if (!quest.startTime) quest.startTime = performance.now();
       ui.counter.style.display = 'flex';
       setBanner("🔍 Retrouve les <b>5 cristaux</b> dispersés sur l'île");
       sfx.quest();
       toast('Nouvelle quête !');
+      saveGame('collect');
     },
   },
   sageWait: {
@@ -583,11 +803,33 @@ const DIALOGUES = {
       setBanner("🗝️ Ouvre la <b>porte du temple</b>, au nord de l'île");
       sfx.quest();
       toast('Clé du temple obtenue !');
+      saveGame('temple');
     },
   },
   sageAfter: {
     speaker: 'Le Sage',
     lines: ["Le temple t'attend au nord. La clé ne sert qu'une fois, fais-en bon usage !"],
+  },
+  templeVoice: {
+    speaker: 'Une Voix Ancienne',
+    lines: [
+      "Tu saisis l'Épée de Lumière, endormie depuis mille ans…",
+      "Mais prends garde, voyageur : en brisant le sceau, tu as libéré les Brumes.",
+      "La nuit tombe sur l'île. Des spectres rôdent déjà entre les arbres…",
+      "Rallume les 4 braseros sacrés pour affaiblir les Brumes… puis terrasse leur Gardien !",
+    ],
+    onEnd: () => { startAct2(); },
+  },
+  sageNight: {
+    speaker: 'Le Sage',
+    lines: [
+      "Les Brumes… je les croyais légende. Ton épée est leur seule faiblesse !",
+      "Rallume les braseros, petit. Leur flamme sacrée affaiblit les spectres. Et reviens me voir si ton courage vacille.",
+    ],
+  },
+  sageBoss: {
+    speaker: 'Le Sage',
+    lines: ["Le Gardien des Brumes garde le temple. Frappe-le sans relâche — chaque coup de ton épée le rapproche du néant !"],
   },
 };
 
@@ -616,6 +858,123 @@ function advanceDialogue() {
   }
 }
 ui.dialogue.addEventListener('pointerdown', e => { e.stopPropagation(); advanceDialogue(); });
+
+// ------------------------------------------------------------
+//  Progression de l'acte 2
+// ------------------------------------------------------------
+function startAct2() {
+  quest.stage = 'braziers';
+  nightTarget = 1;
+  sword.visible = true;
+  ui.hearts.style.display = 'flex';
+  ui.attackBtn.style.display = 'flex';
+  renderHearts();
+  spawnEnemies();
+  brazierBanner();
+  sfx.quest();
+  toast("L'Épée de Lumière est à toi !");
+  saveGame('braziers');
+}
+
+function lightBrazier(b) {
+  if (b.lit) return;
+  b.lit = true;
+  b.flame.visible = true;
+  spawnBurst(new THREE.Vector3(b.x, b.group.position.y + 1.8, b.z), 0xffb050, 30, 5);
+  sfx.brazier();
+  if (litCount() >= braziers.length) {
+    quest.stage = 'boss';
+    spawnBoss();
+    bossBanner();
+    saveGame('boss');
+  } else {
+    brazierBanner();
+    toast(`Brasero ${litCount()} / ${braziers.length}`);
+    saveGame('braziers');
+  }
+}
+
+function doAttack() {
+  if (quest.stage !== 'braziers' && quest.stage !== 'boss') return;
+  if (attackT > 0 || activeDialogue) return;
+  attackT = 0.38;
+  sfx.swing();
+  const p = player.position;
+  const fx = Math.sin(pState.angle), fz = Math.cos(pState.angle);
+  for (const e of enemies) {
+    if (e.dead || e.dying !== null) continue;
+    const dx = e.group.position.x - p.x, dz = e.group.position.z - p.z;
+    const d = Math.hypot(dx, dz);
+    const reach = e.boss ? 3.4 : 2.7;
+    const inFront = d > 0.01 && (dx / d * fx + dz / d * fz) > 0.15;
+    if (d < 1.6 || (d < reach && inFront)) damageEnemy(e);
+  }
+}
+function damageEnemy(e) {
+  e.hp--;
+  sfx.hit();
+  spawnBurst(e.group.position.clone().add(new THREE.Vector3(0, 1.2, 0)),
+    e.boss ? 0xff8080 : 0xbfb8ff, 18, 4);
+  // recul
+  const dx = e.group.position.x - player.position.x;
+  const dz = e.group.position.z - player.position.z;
+  const d = Math.hypot(dx, dz) || 1;
+  e.group.position.x += dx / d * 1.2;
+  e.group.position.z += dz / d * 1.2;
+  if (e.boss) bossBanner();
+  if (e.hp <= 0) {
+    e.dying = 0.6;
+    if (e.boss) {
+      quest.stage = 'dawn';
+      nightTarget = 0;
+      setBanner('🌅 Les Brumes se dissipent…');
+      toast('Le Gardien est vaincu !');
+      sfx.victory();
+      setTimeout(finalVictory, 3200);
+    }
+  }
+}
+function damagePlayer(e) {
+  const now = performance.now();
+  if (now < invulnUntil || quest.stage === 'dawn' || quest.stage === 'done') return;
+  invulnUntil = now + 1300;
+  hearts--;
+  renderHearts();
+  sfx.hurt();
+  // recul du joueur
+  const dx = player.position.x - e.group.position.x;
+  const dz = player.position.z - e.group.position.z;
+  const d = Math.hypot(dx, dz) || 1;
+  let nx = player.position.x + dx / d * 2.4;
+  let nz = player.position.z + dz / d * 2.4;
+  const dc = Math.hypot(nx, nz);
+  if (dc > WALK_R) { nx = nx / dc * WALK_R; nz = nz / dc * WALK_R; }
+  player.position.x = nx; player.position.z = nz;
+  if (hearts <= 0) {
+    hearts = MAX_HEARTS;
+    renderHearts();
+    player.position.set(0, terrainH(0, 10), 10);
+    toast('Les Brumes t\'ont repoussé au campement…');
+  }
+}
+
+function finalVictory() {
+  quest.stage = 'done';
+  clearSave();
+  const secs = Math.round(playMs() / 1000);
+  const m = Math.floor(secs / 60), s = secs % 60;
+  document.getElementById('victoryText').textContent =
+    `Cristaux retrouvés, braseros rallumés, Gardien des Brumes terrassé : tu as sauvé l'Île Oubliée en ${m > 0 ? m + ' min ' : ''}${s} s. Les anciens chanteront ton nom !`;
+  const pos = player.position;
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      spawnBurst(new THREE.Vector3(
+        pos.x + (Math.random() - 0.5) * 6, pos.y + 2 + Math.random() * 3, pos.z + (Math.random() - 0.5) * 6
+      ), [0xffe27a, 0xff9e5e, 0x9fe0ff, 0xa78bfa, 0x8be29b][i], 34, 7);
+    }, i * 300);
+  }
+  setTimeout(() => document.getElementById('victory').classList.add('show'), 1500);
+}
 
 // ------------------------------------------------------------
 //  Contrôles : joystick tactile + clavier + drag caméra
@@ -708,6 +1067,7 @@ window.addEventListener('keydown', e => {
     if (activeDialogue) advanceDialogue();
     else if (currentInteract) doInteract();
   }
+  if (e.code === 'KeyF') { audioInit(); doAttack(); }
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -730,7 +1090,9 @@ function keyboardInput() {
 // ------------------------------------------------------------
 let currentInteract = null; // { label, action }
 function updateInteractables() {
-  if (activeDialogue || quest.stage === 'done') { currentInteract = null; ui.actionBtn.style.display = 'none'; return; }
+  if (activeDialogue || ['opening', 'dawn', 'done'].includes(quest.stage)) {
+    currentInteract = null; ui.actionBtn.style.display = 'none'; return;
+  }
   const p = player.position;
   let next = null;
 
@@ -738,13 +1100,25 @@ function updateInteractables() {
   if (dSage < 3.2) {
     if (quest.stage === 'intro') next = { label: '💬 Parler', action: () => openDialogue('sageIntro') };
     else if (quest.stage === 'collect' && quest.collected < CRYSTAL_COUNT) next = { label: '💬 Parler', action: () => openDialogue('sageWait') };
-    else if (quest.stage === 'collect' && quest.collected >= CRYSTAL_COUNT) next = { label: '💬 Parler', action: () => openDialogue('sageDone') };
+    else if (quest.stage === 'collect') next = { label: '💬 Parler', action: () => openDialogue('sageDone') };
     else if (quest.stage === 'temple') next = { label: '💬 Parler', action: () => openDialogue('sageAfter') };
+    else if (quest.stage === 'braziers') next = { label: '💬 Parler', action: () => openDialogue('sageNight') };
+    else if (quest.stage === 'boss') next = { label: '💬 Parler', action: () => openDialogue('sageBoss') };
   }
 
   if (!next && quest.stage === 'temple') {
     const dDoor = Math.hypot(p.x - doorSpot.x, p.z - doorSpot.z);
     if (dDoor < 4.5) next = { label: '🗝️ Ouvrir', action: openTemple };
+  }
+
+  if (!next && quest.stage === 'braziers') {
+    for (const b of braziers) {
+      if (b.lit) continue;
+      if (Math.hypot(p.x - b.x, p.z - b.z) < 2.8) {
+        next = { label: '🔥 Allumer', action: () => lightBrazier(b) };
+        break;
+      }
+    }
   }
 
   currentInteract = next;
@@ -759,6 +1133,7 @@ function doInteract() {
   if (currentInteract) currentInteract.action();
 }
 ui.actionBtn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); audioInit(); doInteract(); });
+ui.attackBtn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); audioInit(); doAttack(); });
 
 function openTemple() {
   if (quest.stage !== 'temple') return;
@@ -782,25 +1157,53 @@ function collectCrystal(c) {
   } else {
     toast(`Cristal ${quest.collected} / ${CRYSTAL_COUNT}`);
   }
+  saveGame('collect');
 }
 
-function winGame() {
-  quest.stage = 'done';
-  const secs = Math.round((performance.now() - quest.startTime) / 1000);
-  const m = Math.floor(secs / 60), s = secs % 60;
-  document.getElementById('victoryText').textContent =
-    `Tu as ouvert le temple et découvert le trésor des anciens en ${m > 0 ? m + ' min ' : ''}${s} s. L'Île Oubliée se souviendra de toi !`;
-  sfx.victory();
-  const t = temple.getObjectByName('treasure');
-  for (let i = 0; i < 4; i++) {
-    setTimeout(() => {
-      const pos = t.getWorldPosition(new THREE.Vector3());
-      pos.x += (Math.random() - 0.5) * 4;
-      pos.y += 1 + Math.random() * 3;
-      spawnBurst(pos, [0xffe27a, 0xff9e5e, 0x9fe0ff, 0xa78bfa][i], 34, 7);
-    }, i * 350);
+// ------------------------------------------------------------
+//  Mise à jour des spectres
+// ------------------------------------------------------------
+function updateEnemies(dt, t) {
+  const p = player.position;
+  const frozen = !!activeDialogue || ['dawn', 'done'].includes(quest.stage);
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.dead) continue;
+    const g = e.group;
+    if (e.dying !== null) {
+      e.dying -= dt;
+      const op = Math.max(0, e.dying / 0.6);
+      for (const m of e.mats) m.opacity = op * 0.82;
+      g.position.y += dt * 1.5;
+      if (e.dying <= 0) {
+        e.dead = true;
+        scene.remove(g);
+      }
+      continue;
+    }
+    if (!frozen) {
+      const dx = p.x - g.position.x, dz = p.z - g.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d < e.aggro) {
+        const s = e.speed * dt;
+        if (d > 0.01) {
+          g.position.x += dx / d * s;
+          g.position.z += dz / d * s;
+          g.rotation.y = Math.atan2(dx, dz);
+        }
+        if (d < (e.boss ? 2.0 : 1.2)) damagePlayer(e);
+      } else {
+        g.position.x += Math.sin(t * 0.5 + e.phase) * dt * 0.5;
+        g.position.z += Math.cos(t * 0.4 + e.phase) * dt * 0.5;
+      }
+      const dc = Math.hypot(g.position.x, g.position.z);
+      if (dc > WALK_R) {
+        g.position.x = g.position.x / dc * WALK_R;
+        g.position.z = g.position.z / dc * WALK_R;
+      }
+    }
+    g.position.y = Math.max(terrainH(g.position.x, g.position.z), 0.05) + 0.55 + Math.sin(t * 2.4 + e.phase) * 0.15;
   }
-  setTimeout(() => document.getElementById('victory').classList.add('show'), 1800);
 }
 
 // ------------------------------------------------------------
@@ -829,7 +1232,6 @@ function tick() {
     const dx = input.x * cos + input.z * sin;
     const dz = -input.x * sin + input.z * cos;
     const targetAngle = Math.atan2(dx, dz);
-    // rotation douce
     let da = targetAngle - pState.angle;
     while (da > Math.PI) da -= Math.PI * 2;
     while (da < -Math.PI) da += Math.PI * 2;
@@ -859,19 +1261,29 @@ function tick() {
     player.position.z = nz;
     pState.bob += dt * speed * 1.6;
   }
+
   // hauteur du terrain (ne pas descendre dans l'eau)
   const groundY = Math.max(terrainH(player.position.x, player.position.z), 0.05);
   player.position.y += (groundY - player.position.y) * Math.min(1, dt * 14);
 
-  // animation des membres
+  // animation des membres (+ coup d'épée)
   const limbs = player.userData.limbs;
   const swing = moving ? Math.sin(pState.bob * 4) * 0.55 : 0;
   limbs.armL.rotation.x = swing;
-  limbs.armR.rotation.x = -swing;
   limbs.legL.rotation.x = -swing;
   limbs.legR.rotation.x = swing;
+  if (attackT > 0) {
+    attackT -= dt;
+    const k = 1 - Math.max(attackT, 0) / 0.38;
+    limbs.armR.rotation.x = -Math.sin(k * Math.PI) * 2.3;
+  } else {
+    limbs.armR.rotation.x = -swing;
+  }
 
-  // sage : respiration + orbe
+  // clignotement d'invulnérabilité
+  player.visible = performance.now() > invulnUntil || Math.floor(t * 12) % 2 === 0;
+
+  // sage : respiration
   sage.position.y = terrainH(sage.position.x, sage.position.z) + Math.sin(t * 1.6) * 0.03;
 
   // cristaux : flottement
@@ -885,8 +1297,8 @@ function tick() {
     }
   }
 
-  // lucioles scintillent
-  fireflies.material.opacity = 0.5 + Math.sin(t * 2.2) * 0.35;
+  // lucioles scintillent (plus visibles la nuit)
+  fireflies.material.opacity = 0.5 + Math.sin(t * 2.2) * 0.35 + night01 * 0.3;
   fireflies.rotation.y = Math.sin(t * 0.05) * 0.02;
 
   // nuages
@@ -895,19 +1307,33 @@ function tick() {
     if (cl.position.x > 130) cl.position.x = -130;
   }
 
+  // flammes des braseros
+  for (let i = 0; i < braziers.length; i++) {
+    const b = braziers[i];
+    if (b.lit) b.flame.scale.setScalar(1 + Math.sin(t * 13 + i * 2) * 0.12);
+  }
+
   // ouverture de la porte
   if (quest.stage === 'opening') {
     doorOpenAnim += dt;
     templeDoor.position.y = Math.max(3.8 - doorOpenAnim * 1.4, -1.6);
-    if (templeDoor.position.y <= -1.55) {
-      templeDoor.visible = false;
-      winGame();
+    if (templeDoor.position.y <= -1.55 && templeDoor.visible) {
+      templeDoor.visible = false; // une seule fois
+      openDialogue('templeVoice');
     }
   }
   // trésor qui tourne
-  const treasure = temple.getObjectByName('treasure');
-  treasure.rotation.y = t * 0.8;
-  treasure.position.y = 2.6 + Math.sin(t * 1.5) * 0.15;
+  treasureRef.rotation.y = t * 0.8;
+  treasureRef.position.y = 2.6 + Math.sin(t * 1.5) * 0.15;
+
+  // spectres
+  updateEnemies(dt, t);
+
+  // transition jour/nuit
+  if (Math.abs(night01 - nightTarget) > 0.001) {
+    night01 += Math.sign(nightTarget - night01) * Math.min(dt * 0.25, Math.abs(nightTarget - night01));
+    applyMood();
+  }
 
   updateBursts(dt);
   updateInteractables();
@@ -922,7 +1348,6 @@ function tick() {
     target.y + Math.sin(camPitch) * camDist,
     target.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
   );
-  // la caméra ne passe pas sous le terrain
   const minY = Math.max(terrainH(desired.x, desired.z), 0) + 0.7;
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, started ? Math.min(1, dt * 6) : 1);
@@ -934,17 +1359,86 @@ function tick() {
 tick();
 
 // ------------------------------------------------------------
+//  Restauration d'une sauvegarde
+// ------------------------------------------------------------
+function applySave(s) {
+  quest.priorMs = s.playMs || 0;
+  quest.startTime = performance.now();
+  const inAct2 = s.stage === 'braziers' || s.stage === 'boss';
+  const takenAll = s.stage !== 'collect';
+
+  for (let i = 0; i < crystals.length; i++) {
+    if (takenAll || s.taken.includes(i)) {
+      crystals[i].taken = true;
+      scene.remove(crystals[i].mesh);
+    }
+  }
+  quest.collected = crystals.filter(c => c.taken).length;
+  ui.counter.style.display = 'flex';
+  ui.counterTxt.textContent = `${quest.collected} / ${CRYSTAL_COUNT}`;
+
+  if (s.stage === 'collect') {
+    quest.stage = 'collect';
+    setBanner(quest.collected >= CRYSTAL_COUNT
+      ? '✅ Tous les cristaux ! Retourne voir le <b>Sage</b>'
+      : "🔍 Retrouve les <b>5 cristaux</b> dispersés sur l'île");
+  } else if (s.stage === 'temple') {
+    quest.stage = 'temple';
+    setBanner("🗝️ Ouvre la <b>porte du temple</b>, au nord de l'île");
+  } else if (inAct2) {
+    // porte déjà ouverte
+    templeDoor.visible = false;
+    night01 = 1; nightTarget = 1;
+    applyMood();
+    sword.visible = true;
+    ui.hearts.style.display = 'flex';
+    ui.attackBtn.style.display = 'flex';
+    renderHearts();
+    for (const i of (s.lit || [])) {
+      braziers[i].lit = true;
+      braziers[i].flame.visible = true;
+    }
+    spawnEnemies();
+    if (s.stage === 'boss') {
+      quest.stage = 'boss';
+      spawnBoss();
+      bossBanner();
+    } else {
+      quest.stage = 'braziers';
+      brazierBanner();
+    }
+  }
+}
+
+// ------------------------------------------------------------
 //  UI : démarrage, rejouer, redimensionnement
 // ------------------------------------------------------------
 setBanner("🌴 Bienvenue ! Va parler au <b>Sage</b> au chapeau violet");
 
-document.getElementById('startBtn').addEventListener('click', () => {
-  audioInit();
-  sfx.quest();
+const pendingSave = loadSave();
+const continueBtn = document.getElementById('continueBtn');
+if (pendingSave) continueBtn.style.display = 'inline-block';
+
+function closeIntro() {
   document.getElementById('intro').classList.add('hide');
   setTimeout(() => document.getElementById('intro').style.display = 'none', 700);
+}
+document.getElementById('startBtn').addEventListener('click', () => {
+  audioInit();
+  clearSave();
+  sfx.quest();
+  closeIntro();
 });
-document.getElementById('replayBtn').addEventListener('click', () => location.reload());
+continueBtn.addEventListener('click', () => {
+  audioInit();
+  if (pendingSave) applySave(pendingSave);
+  sfx.quest();
+  closeIntro();
+});
+document.getElementById('replayBtn').addEventListener('click', () => {
+  clearSave();
+  location.reload();
+});
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -957,4 +1451,7 @@ window.addEventListener('orientationchange', () => {
 });
 
 // Accès debug (tests automatisés) — sans effet sur le jeu
-window.__game = { player, quest, crystals, sage, doorSpot };
+window.__game = {
+  player, quest, crystals, sage, doorSpot, braziers, enemies,
+  doAttack, getHearts: () => hearts, getNight: () => night01,
+};

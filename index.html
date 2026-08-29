@@ -29,7 +29,7 @@
   #hud{ position:fixed; inset:0; pointer-events:none; }
 
   #questBanner{
-    position:absolute; top:calc(10px + var(--safe-top)); left:50%;
+    position:absolute; top:calc(56px + var(--safe-top)); left:50%;
     transform:translateX(-50%);
     max-width:min(86vw, 460px);
     background:rgba(8,20,36,.72); color:#eaf4ff;
@@ -55,6 +55,15 @@
     background:linear-gradient(135deg,#8ef7ff,#3f7bff);
     clip-path:polygon(50% 0,100% 38%,80% 100%,20% 100%,0 38%);
     filter:drop-shadow(0 0 5px rgba(110,200,255,.9));
+  }
+
+  #hearts{
+    position:absolute; top:calc(10px + var(--safe-top)); left:12px;
+    display:none; gap:2px;
+    background:rgba(8,20,36,.72);
+    border:1px solid rgba(255,150,150,.35);
+    border-radius:12px; padding:6px 10px; font-size:17px;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
   }
 
   /* Joystick */
@@ -85,6 +94,18 @@
     animation:pulse 1.6s ease-in-out infinite;
   }
   @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+
+  /* Attack button (acte 2) */
+  #attackBtn{
+    position:absolute; right:120px; bottom:calc(34px + var(--safe-bottom));
+    width:74px; height:74px; border-radius:50%;
+    border:2px solid rgba(200,220,255,.5);
+    background:radial-gradient(circle at 35% 30%, rgba(180,210,255,.95), rgba(90,120,200,.9));
+    font-size:30px; display:none; align-items:center; justify-content:center;
+    pointer-events:auto;
+    box-shadow:0 6px 22px rgba(100,140,255,.35);
+  }
+  #attackBtn:active{ transform:scale(.92); }
 
   /* Dialogue */
   #dialogue{
@@ -142,6 +163,8 @@
   <div id="hud">
     <div id="questBanner">…</div>
     <div id="counter"><span class="gem"></span><span id="counterTxt">0 / 5</span></div>
+    <div id="hearts"></div>
+    <button id="attackBtn">⚔️</button>
     <div id="joy"><div id="joyStick"></div></div>
     <button id="actionBtn">Parler</button>
     <div id="dialogue">
@@ -155,8 +178,9 @@
   <div id="intro" class="overlay">
     <h1>L'Île Oubliée</h1>
     <p>Échoué·e sur une île mystérieuse, pars à la rencontre du Sage, retrouve les <b>5 cristaux perdus</b> et perce le secret du temple ancien.</p>
-    <button id="startBtn">⛵ Commencer l'aventure</button>
-    <div class="small">📱 Joystick à gauche pour marcher · glisse à droite pour la caméra<br>💻 ZQSD / WASD / flèches + E pour agir</div>
+    <button id="continueBtn" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#8be29b,#3dae62); color:#0b3a1c; box-shadow:0 8px 30px rgba(70,190,110,.4);">▶ Continuer l'aventure</button>
+    <button id="startBtn">⛵ Nouvelle aventure</button>
+    <div class="small">📱 Joystick à gauche pour marcher · glisse à droite pour la caméra<br>💻 ZQSD / WASD / flèches + E pour agir · F ou ⚔️ pour attaquer<br>💾 Ta progression est sauvegardée automatiquement</div>
   </div>
 
   <div id="victory" class="overlay">
