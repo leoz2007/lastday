@@ -24,9 +24,13 @@
   }
   #game{ position:fixed; inset:0; }
   canvas{ display:block; }
+  #vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(8,12,26,.32) 100%);
+  }
 
   /* ---------- HUD ---------- */
-  #hud{ position:fixed; inset:0; pointer-events:none; }
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:2; }
 
   #questBanner{
     position:absolute; top:calc(56px + var(--safe-top)); left:50%;
@@ -159,6 +163,7 @@
 </head>
 <body>
   <div id="game"></div>
+  <div id="vignette"></div>
 
   <div id="hud">
     <div id="questBanner">…</div>
