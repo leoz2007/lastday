@@ -426,7 +426,7 @@ function applyMood() {
   hemi.intensity = 0.76 - night01 * 0.32;
   hemi.color.lerpColors(MOOD.dayHemiSky, MOOD.nightHemiSky, night01);
   hemi.groundColor.lerpColors(MOOD.dayHemiGnd, MOOD.nightHemiGnd, night01);
-  sun.intensity = 1.9 - night01 * 1.2;
+  sun.intensity = 1.9 - night01 * 1.05;
   sun.color.lerpColors(MOOD.daySun, MOOD.nightSun, night01).lerp(DUSK.sun, dusk * 0.65);
   sunSprite.material.opacity = (1 - night01) * 0.95;
   sunSprite.material.color.set(0xffffff).lerp(DUSK.sprite, dusk);
@@ -1068,9 +1068,19 @@ const sword = new THREE.Group();
   player.userData.limbs.armR.add(sword);
 }
 // la lame éclaire les alentours la nuit
-const swordLight = new THREE.PointLight(0x8fb0ff, 0, 11, 1.8);
+const swordLight = new THREE.PointLight(0x8fb0ff, 0, 14, 1.6);
 swordLight.position.set(0, 1.6, 0);
 player.add(swordLight);
+// traînée d'énergie du coup d'épée
+const slashTrail = new THREE.Mesh(
+  new THREE.TorusGeometry(1.15, 0.055, 6, 20, Math.PI * 1.1),
+  new THREE.MeshBasicMaterial({
+    color: 0x9fd0ff, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  })
+);
+slashTrail.position.set(0, 1.35, 0.55);
+player.add(slashTrail);
 
 // Le Sage
 const sage = makeCharacter({ shirt: 0x55663f, pants: 0x3c4238, skin: 0xe8bd92, hair: 0xb8b8b8 });
@@ -1153,10 +1163,13 @@ gltfLoader.load('./assets/models/Soldier.glb', (gltf) => {
   sword.parent.remove(sword); // récupérer la lame avant de purger le corps procédural
   for (const c of [...player.children]) player.remove(c);
   player.add(p.model, swordLight);
-  let handBone = null, armBone = null;
+  let handBone = null, armBone = null, foreBone = null, spineBone = null;
   p.model.traverse(o => {
-    if (o.isBone && /RightHand$/.test(o.name)) handBone = o;
-    if (o.isBone && /RightArm$/.test(o.name)) armBone = o;
+    if (!o.isBone) return;
+    if (/RightHand$/.test(o.name)) handBone = o;
+    if (/RightArm$/.test(o.name)) armBone = o;
+    if (/RightForeArm$/.test(o.name)) foreBone = o;
+    if (/Spine$/.test(o.name)) spineBone = o;
   });
   if (handBone) {
     p.model.updateMatrixWorld(true);
@@ -1170,7 +1183,7 @@ gltfLoader.load('./assets/models/Soldier.glb', (gltf) => {
     player.add(sword);
     sword.position.set(0.45, 1.6, 0);
   }
-  player.userData.soldier = { ...p, armBone, current: 'Idle' };
+  player.userData.soldier = { ...p, armBone, foreBone, spineBone, current: 'Idle' };
 
   // --- Dr Vance (uniforme teinté olive, pose d'attente) ---
   const v = setup(0x92a4c0, 'Idle', 0.6);
@@ -1188,6 +1201,12 @@ gltfLoader.load('./assets/models/Soldier.glb', (gltf) => {
   orbGlow.position.copy(orb.position);
   sage.add(orb, orbGlow);
 }, undefined, (err) => console.warn('Soldier.glb indisponible, personnages procéduraux conservés', err));
+
+// Réplicateurs : robot glTF animé (marche, coup, mort)
+let robotProto = null;
+gltfLoader.load('./assets/models/RobotExpressive.glb', (gltf) => {
+  robotProto = gltf;
+}, undefined, () => { /* fallback : entités procédurales */ });
 
 // Oiseaux alien qui tournoient au-dessus de l'île
 gltfLoader.load('./assets/models/Parrot.glb', (gltf) => {
@@ -1621,24 +1640,59 @@ function makeSpectre(boss = false) {
   }
   return { group: g, mats: [bodyMat] };
 }
+function setEnemyAnim(e, name) {
+  if (!e.actions || e.current === name || !e.actions[name]) return;
+  e.actions[name].reset().fadeIn(0.15).play();
+  if (e.actions[e.current]) e.actions[e.current].fadeOut(0.15);
+  e.current = name;
+}
 function spawnSpectre(x, z, boss = false) {
-  const { group, mats } = makeSpectre(boss);
-  group.position.set(x, Math.max(terrainH(x, z), 0.05) + 0.55, z);
-  scene.add(group);
   const blob = new THREE.Mesh(blobShadowGeo, new THREE.MeshBasicMaterial({
     map: blobShadowTex, transparent: true, depthWrite: false,
   }));
   if (boss) blob.scale.setScalar(2.1);
   scene.add(blob);
   const e = {
-    group, mats, blob, boss,
+    blob, boss,
     hp: boss ? 6 : 1,
     speed: boss ? 3.4 : 2.6,
     aggro: boss ? 40 : 11,
     phase: Math.random() * 6.28,
     home: { x, z },
-    dying: null, dead: false,
+    dying: null, dead: false, punchT: 0,
   };
+  if (robotProto) {
+    // Réplicateur : robot glTF animé
+    const group = new THREE.Group();
+    const model = SkeletonUtils.clone(robotProto.scene);
+    toonify(model, boss ? 0xd8887a : 0x9fb0c4);
+    const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+    model.scale.setScalar((boss ? 4.2 : 1.95) / (size.y || 1));
+    group.add(model);
+    group.position.set(x, Math.max(terrainH(x, z), 0.05), z);
+    scene.add(group);
+    const mixer = new THREE.AnimationMixer(model);
+    const actions = {};
+    for (const clip of robotProto.animations) actions[clip.name] = mixer.clipAction(clip);
+    if (actions.Death) {
+      actions.Death.setLoop(THREE.LoopOnce);
+      actions.Death.clampWhenFinished = true;
+    }
+    if (actions.Punch) actions.Punch.setLoop(THREE.LoopOnce);
+    e.current = 'none';
+    e.actions = actions;
+    e.mixer = mixer;
+    gltfMixers.push(mixer);
+    setEnemyAnim(e, 'Idle');
+    const mats = [];
+    model.traverse(o => { if (o.isMesh) mats.push(o.material); });
+    e.group = group; e.mats = mats; e.isRobot = true;
+  } else {
+    const { group, mats } = makeSpectre(boss);
+    group.position.set(x, Math.max(terrainH(x, z), 0.05) + 0.55, z);
+    scene.add(group);
+    e.group = group; e.mats = mats; e.isRobot = false;
+  }
   enemies.push(e);
   return e;
 }
@@ -1654,7 +1708,7 @@ function spawnEnemies() {
 }
 function spawnBoss() {
   bossRef = spawnSpectre(0, -26, true);
-  toast("L'Entité Alpha apparaît !");
+  toast("Le Réplicateur Alpha apparaît !");
   sfx.boss();
 }
 
@@ -1735,6 +1789,11 @@ const sfx = {
   quest: () => { tone(523, 0.15, 'triangle', 0.16); tone(659, 0.15, 'triangle', 0.16, 0.12); tone(784, 0.25, 'triangle', 0.16, 0.24); },
   door: () => { tone(120, 0.7, 'sawtooth', 0.12); tone(90, 0.9, 'sawtooth', 0.1, 0.15); },
   chevron: () => { tone(160, 0.1, 'square', 0.16); tone(80, 0.2, 'sawtooth', 0.14, 0.05); },
+  travel: () => {
+    tone(520, 0.3, 'sine', 0.16); tone(400, 0.3, 'sine', 0.15, 0.18);
+    tone(300, 0.35, 'sine', 0.15, 0.36); tone(210, 0.5, 'sine', 0.14, 0.55);
+    tone(70, 2.2, 'sawtooth', 0.2, 0.2); tone(105, 1.8, 'sawtooth', 0.12, 0.4);
+  },
   gate: () => { tone(50, 1.5, 'sawtooth', 0.26); tone(75, 1.2, 'sawtooth', 0.2, 0.1); tone(320, 0.5, 'sine', 0.15, 0.15); tone(150, 0.9, 'triangle', 0.12, 0.35); },
   swing: () => { tone(300, 0.07, 'sawtooth', 0.09); tone(190, 0.09, 'sawtooth', 0.07, 0.04); },
   hit: () => { tone(520, 0.06, 'square', 0.14); tone(260, 0.1, 'square', 0.1, 0.04); },
@@ -1789,7 +1848,7 @@ function brazierBanner() {
 }
 function bossBanner() {
   const hp = bossRef && !bossRef.dead ? bossRef.hp : 0;
-  setBanner(`⚔️ Détruis l'<b>Entité Alpha</b> ! ${'🔺'.repeat(Math.max(hp, 0))}`);
+  setBanner(`⚔️ Détruis le <b>Réplicateur Alpha</b> ! ${'🔺'.repeat(Math.max(hp, 0))}`);
 }
 function playMs() {
   return quest.priorMs + (quest.startTime ? performance.now() - quest.startTime : 0);
@@ -1868,22 +1927,22 @@ const DIALOGUES = {
     speaker: 'Alerte du DHD',
     lines: [
       "⚠ VORTEX ENTRANT INSTABLE — signature d'énergie inconnue détectée…",
-      "Quelque chose a traversé l'horizon des événements avant la fermeture du vortex !",
-      "L'entité brouille l'atmosphère : une nuit artificielle tombe sur P4X-731…",
-      "Protocole lantien : réactive les 4 obélisques de défense, et détruis l'Entité avec la lame ancienne apparue près du dais !",
+      "Une nuée de RÉPLICATEURS a traversé l'horizon avant la fermeture du vortex !",
+      "Leur nuée brouille l'atmosphère : une nuit artificielle tombe sur P4X-731…",
+      "Protocole lantien : réactive les 4 obélisques de défense, et détruis leur Alpha avec la lame ancienne apparue près du dais !",
     ],
     onEnd: () => { startAct2(); },
   },
   sageNight: {
     speaker: 'Dr Vance',
     lines: [
-      "Une entité d'énergie ! J'ai lu des rapports lantiens à ce sujet… Les obélisques de défense peuvent l'affaiblir — réactive-les tous les quatre !",
-      "Cette lame ancienne canalise l'énergie : c'est la seule arme qui la blesse. Reviens me voir si ton courage vacille.",
+      "Des Réplicateurs ! Ces machines dévorent toute technologie… Les obélisques lantiens brouillent leur cohésion — réactive-les tous les quatre !",
+      "Cette lame ancienne canalise l'énergie : c'est la seule arme qui perce leur carapace. Reviens me voir si ton courage vacille.",
     ],
   },
   sageBoss: {
     speaker: 'Dr Vance',
-    lines: ["L'Entité Alpha protège la Porte ! Frappe-la sans relâche — chaque coup de lame disperse sa cohérence énergétique !"],
+    lines: ["Le Réplicateur Alpha bloque la Porte ! Sa carapace cède sous la lame ancienne — frappe sans relâche, puis franchis l'horizon !"],
   },
 };
 
@@ -1982,17 +2041,21 @@ function damageEnemy(e) {
   e.group.position.z += dz / d * 1.2;
   if (e.boss) bossBanner();
   if (e.hp <= 0) {
-    e.dying = 0.6;
+    if (e.isRobot) {
+      e.dying = 1.9;
+      setEnemyAnim(e, 'Death');
+    } else {
+      e.dying = 0.6;
+    }
     if (e.boss) {
       quest.stage = 'dawn';
       nightTarget = 0;
       dialChevrons = 9;
       horizonTarget = 1;
       templeLightTarget = 3.0;
-      setBanner('🌀 La Porte se réactive…');
-      toast("L'Entité est détruite !");
+      setBanner('🌀 La Porte est ouverte — <b>franchis l\'horizon</b> pour rentrer !');
+      toast("L'Alpha est détruit !");
       sfx.victory();
-      setTimeout(finalVictory, 3200);
     }
   }
 }
@@ -2016,8 +2079,21 @@ function damagePlayer(e) {
     hearts = MAX_HEARTS;
     renderHearts();
     player.position.set(0, terrainH(0, 10), 10);
-    toast("L'Entité t'a repoussé au campement…");
+    toast("Les Réplicateurs t'ont repoussé au campement…");
   }
+}
+
+let traveling = false;
+function startTravel() {
+  if (traveling || quest.stage !== 'dawn') return;
+  traveling = true;
+  sfx.travel();
+  const w = document.getElementById('wormhole');
+  w.style.display = 'flex';
+  requestAnimationFrame(() => w.classList.add('on'));
+  setTimeout(finalVictory, 2600);
+  setTimeout(() => { w.classList.remove('on'); }, 3300);
+  setTimeout(() => { w.style.display = 'none'; }, 3900);
 }
 
 function finalVictory() {
@@ -2026,7 +2102,7 @@ function finalVictory() {
   const secs = Math.round(playMs() / 1000);
   const m = Math.floor(secs / 60), s = secs % 60;
   document.getElementById('victoryText').textContent =
-    `Cristaux du DHD récupérés, obélisques réactivés, Entité Alpha détruite : chevron 7 enclenché en ${m > 0 ? m + ' min ' : ''}${s} s. Bon retour sur Terre !`;
+    `Cristaux du DHD récupérés, obélisques réactivés, Réplicateurs détruits… et tu as franchi l'horizon des événements en ${m > 0 ? m + ' min ' : ''}${s} s. Bon retour sur Terre !`;
   const pos = player.position;
   for (let i = 0; i < 5; i++) {
     setTimeout(() => {
@@ -2234,29 +2310,48 @@ function updateEnemies(dt, t) {
     const g = e.group;
     if (e.dying !== null) {
       e.dying -= dt;
-      const op = Math.max(0, e.dying / 0.6);
-      for (const m of e.mats) m.opacity = op * 0.82;
-      e.blob.material.opacity = op;
-      g.position.y += dt * 1.5;
+      if (e.isRobot) {
+        // l'animation Death joue ; fondu sur la fin
+        if (e.dying < 0.7) {
+          const op = Math.max(0, e.dying / 0.7);
+          for (const m of e.mats) { m.transparent = true; m.opacity = op; }
+          e.blob.material.opacity = op;
+        }
+      } else {
+        const op = Math.max(0, e.dying / 0.6);
+        for (const m of e.mats) m.opacity = op * 0.82;
+        e.blob.material.opacity = op;
+        g.position.y += dt * 1.5;
+      }
       if (e.dying <= 0) {
         e.dead = true;
         scene.remove(g);
         scene.remove(e.blob);
+        if (e.mixer) {
+          const mi = gltfMixers.indexOf(e.mixer);
+          if (mi >= 0) gltfMixers.splice(mi, 1);
+        }
       }
       continue;
     }
+    if (e.punchT > 0) e.punchT -= dt;
     if (!frozen) {
       const dx = p.x - g.position.x, dz = p.z - g.position.z;
       const d = Math.hypot(dx, dz);
       if (d < e.aggro) {
         const s = e.speed * dt;
-        if (d > 0.01) {
+        if (d > 0.01 && e.punchT <= 0) {
           g.position.x += dx / d * s;
           g.position.z += dz / d * s;
-          g.rotation.y = Math.atan2(dx, dz);
         }
-        if (d < (e.boss ? 2.0 : 1.2)) damagePlayer(e);
+        g.rotation.y = Math.atan2(dx, dz);
+        if (e.isRobot) setEnemyAnim(e, e.punchT > 0 ? 'Punch' : (e.boss ? 'Running' : 'Walking'));
+        if (d < (e.boss ? 2.4 : 1.4)) {
+          if (e.isRobot && e.punchT <= 0) { e.punchT = 0.9; setEnemyAnim(e, 'Punch'); }
+          damagePlayer(e);
+        }
       } else {
+        if (e.isRobot) setEnemyAnim(e, 'Idle');
         g.position.x += Math.sin(t * 0.5 + e.phase) * dt * 0.5;
         g.position.z += Math.cos(t * 0.4 + e.phase) * dt * 0.5;
       }
@@ -2267,7 +2362,7 @@ function updateEnemies(dt, t) {
       }
     }
     const gnd = Math.max(terrainH(g.position.x, g.position.z), 0.05);
-    g.position.y = gnd + 0.55 + Math.sin(t * 2.4 + e.phase) * 0.15;
+    g.position.y = e.isRobot ? gnd : gnd + 0.55 + Math.sin(t * 2.4 + e.phase) * 0.15;
     e.blob.position.set(g.position.x, gnd + 0.05, g.position.z);
   }
 }
@@ -2351,7 +2446,15 @@ function tick() {
     if (attackT > 0) {
       attackT -= dt;
       const k = 1 - Math.max(attackT, 0) / 0.38;
-      if (soldier.armBone) soldier.armBone.rotation.x -= Math.sin(k * Math.PI) * 1.6;
+      const sw = Math.sin(k * Math.PI);
+      // frappe : le torse pivote, le bras se lève puis fauche, l'avant-bras suit
+      if (soldier.spineBone) soldier.spineBone.rotation.y += sw * 0.5;
+      if (soldier.armBone) soldier.armBone.rotation.x -= sw * 1.7;
+      if (soldier.foreBone) soldier.foreBone.rotation.x -= sw * 0.7;
+      slashTrail.material.opacity = sw * 0.85;
+      slashTrail.rotation.z = 1.4 - k * 2.8;
+    } else {
+      slashTrail.material.opacity = 0;
     }
   } else {
     const limbs = player.userData.limbs;
@@ -2412,7 +2515,7 @@ function tick() {
   updateSmoke(dt);
 
   // lumières dynamiques
-  swordLight.intensity = sword.visible ? night01 * 1.6 : 0;
+  swordLight.intensity = sword.visible ? night01 * 2.3 : 0;
   for (let i = 0; i < braziers.length; i++) {
     const b = braziers[i];
     b.light.intensity = b.lit ? 1.7 * (1 + Math.sin(t * 11 + i * 2.1) * 0.18) : 0;
@@ -2467,6 +2570,13 @@ function tick() {
   waterU.uTime.value = t;
   for (const s of windShaders) s.uniforms.uTime.value = t;
 
+  // franchir l'horizon des événements une fois la Porte rouverte
+  if (quest.stage === 'dawn' && !traveling &&
+      Math.abs(player.position.x) < 2.6 &&
+      Math.abs(player.position.z + 38) < 1.3) {
+    startTravel();
+  }
+
   // séquence de composition de la Porte
   if (quest.stage === 'opening') {
     dialT += dt;
@@ -2516,7 +2626,11 @@ function tick() {
     target.y + Math.sin(camPitch) * camDist,
     target.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist
   );
-  const minY = Math.max(terrainH(desired.x, desired.z), 0) + 0.7;
+  let minY = Math.max(terrainH(desired.x, desired.z), 0) + 0.7;
+  // ne pas passer sous le dais de la Porte
+  if (Math.hypot(desired.x, desired.z + 38) < 7.4) {
+    minY = Math.max(minY, templeBaseY + 1.8);
+  }
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, started ? Math.min(1, dt * 6) : 1);
   camera.lookAt(target);
@@ -2626,4 +2740,5 @@ window.__game = {
   doAttack, getHearts: () => hearts, getNight: () => night01,
   setCam: (yaw, pitch) => { camYaw = yaw; camPitch = pitch; },
   debugGate: (open) => { dialChevrons = open ? 9 : 0; horizonTarget = open ? 1 : 0; templeLightTarget = open ? 3 : 0.5; },
+  startTravel,
 };
