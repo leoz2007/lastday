@@ -48,7 +48,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 1.04;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -135,6 +135,28 @@ function stylize(mat, opts = {}) {
   };
   mat.customProgramCacheKey = () => 'stylize' + JSON.stringify(opts);
   return mat;
+}
+
+// ------------------------------------------------------------
+//  Cel-shading façon BOTW : rampe de lumière en bandes douces
+//  partagée par tous les matériaux du monde
+// ------------------------------------------------------------
+const toonRamp = (() => {
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 1;
+  const ctx = c.getContext('2d');
+  [112, 158, 228, 255].forEach((g, i) => {
+    ctx.fillStyle = `rgb(${g},${g},${g})`;
+    ctx.fillRect(i, 0, 1, 1);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.minFilter = THREE.LinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.generateMipmaps = false;
+  return t;
+})();
+function TOON(params = {}) {
+  return new THREE.MeshToonMaterial({ gradientMap: toonRamp, ...params });
 }
 
 // ------------------------------------------------------------
@@ -309,6 +331,17 @@ let sunSprite, moon;
   sunSprite.position.copy(skyU.uSunDir.value).multiplyScalar(400);
   scene.add(sunSprite);
 
+  // flare anamorphique horizontal
+  const flare = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture('rgba(255,240,200,0.8)', 'rgba(255,210,130,0.3)'),
+    transparent: true, opacity: 0.5, depthWrite: false, fog: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  flare.scale.set(240, 7, 1);
+  flare.position.copy(sunSprite.position);
+  scene.add(flare);
+  sunSprite.userData.flare = flare;
+
   moon = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeMoonTexture(), transparent: true, opacity: 0, depthWrite: false, fog: false,
   }));
@@ -353,13 +386,14 @@ function applyMood() {
   scene.fog.color.lerpColors(MOOD.dayFog, MOOD.nightFog, night01).lerp(DUSK.fog, dusk * 0.45);
   scene.fog.near = 60 - night01 * 28;
   scene.fog.far = 165 - night01 * 70;
-  hemi.intensity = 0.9 - night01 * 0.44;
+  hemi.intensity = 0.76 - night01 * 0.32;
   hemi.color.lerpColors(MOOD.dayHemiSky, MOOD.nightHemiSky, night01);
   hemi.groundColor.lerpColors(MOOD.dayHemiGnd, MOOD.nightHemiGnd, night01);
   sun.intensity = 1.9 - night01 * 1.2;
   sun.color.lerpColors(MOOD.daySun, MOOD.nightSun, night01).lerp(DUSK.sun, dusk * 0.65);
   sunSprite.material.opacity = (1 - night01) * 0.95;
   sunSprite.material.color.set(0xffffff).lerp(DUSK.sprite, dusk);
+  sunSprite.userData.flare.material.opacity = (1 - night01) * 0.45 + dusk * 0.3;
   moon.material.opacity = night01 * 0.98;
   moon.userData.halo.material.opacity = night01 * 0.5;
   bloomPass.strength = 0.42 + night01 * 0.42; // la nuit, les lueurs ressortent plus
@@ -377,10 +411,10 @@ function applyMood() {
   const crng = mulberry32(777);
   const cWet = new THREE.Color(0xd9bd82);
   const cSand = new THREE.Color(0xf0dca4);
-  const cGrassA = new THREE.Color(0x7cc457);
-  const cGrassB = new THREE.Color(0x4d9b48);
-  const cGrassC = new THREE.Color(0x3a7f42);
-  const cDirt = new THREE.Color(0x9a8562);
+  const cGrassA = new THREE.Color(0x93c96e);
+  const cGrassB = new THREE.Color(0x6aab60);
+  const cGrassC = new THREE.Color(0x548f58);
+  const cDirt = new THREE.Color(0xa08d6a);
   const cRock = new THREE.Color(0x939099);
   const cSnow = new THREE.Color(0xdadde5);
   const tmp = new THREE.Color();
@@ -409,7 +443,7 @@ function applyMood() {
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   const terrain = new THREE.Mesh(geo,
-    stylize(new THREE.MeshLambertMaterial({ vertexColors: true }), { grain: true }));
+    stylize(TOON({ vertexColors: true }), { grain: true }));
   terrain.receiveShadow = true;
   scene.add(terrain);
 }
@@ -525,9 +559,9 @@ function nearReserved(x, z) {
 {
   const N = 60;
   const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.2, 10);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x74513a });
+  const trunkMat = TOON({ color: 0x74513a });
   const leafGeo = new THREE.ConeGeometry(1.5, 2.4, 14);
-  const leafMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  const leafMat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.07, swayY: [-1.2, 1.2] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N * 3);
@@ -550,7 +584,7 @@ function nearReserved(x, z) {
       dummy.scale.setScalar(scale * (1 - k * 0.26));
       dummy.updateMatrix();
       leaves.setMatrixAt(li, dummy.matrix);
-      leafColor.setHSL(hue, 0.5 + rng() * 0.15, 0.26 + k * 0.045 + rng() * 0.05);
+      leafColor.setHSL(hue, 0.42 + rng() * 0.15, 0.33 + k * 0.05 + rng() * 0.05);
       leaves.setColorAt(li, leafColor);
       li++;
     }
@@ -564,9 +598,9 @@ function nearReserved(x, z) {
 {
   const N = 26;
   const trunkGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.7, 10);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x84604a });
+  const trunkMat = TOON({ color: 0x84604a });
   const blobGeo = new THREE.IcosahedronGeometry(1.0, 2);
-  const blobMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  const blobMat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.09, swayY: [-1, 1] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const blobs = new THREE.InstancedMesh(blobGeo, blobMat, N * 3);
@@ -590,7 +624,7 @@ function nearReserved(x, z) {
       dummy.rotation.set(rng() * 3, rng() * 3, rng() * 3);
       dummy.updateMatrix();
       blobs.setMatrixAt(bi, dummy.matrix);
-      c.setHSL(hue, 0.55, 0.3 + rng() * 0.14);
+      c.setHSL(hue, 0.45, 0.36 + rng() * 0.14);
       blobs.setColorAt(bi, c);
       bi++;
     }
@@ -602,10 +636,10 @@ function nearReserved(x, z) {
 
 // Palmiers de plage
 {
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x9a7248 });
-  const leafMat = stylize(new THREE.MeshLambertMaterial({ color: 0x4faf52 }),
+  const trunkMat = TOON({ color: 0x9a7248 });
+  const leafMat = stylize(TOON({ color: 0x4faf52 }),
     { sway: 0.07, swayY: [-0.6, 0.6] });
-  const cocoMat = new THREE.MeshLambertMaterial({ color: 0x6e4a2e });
+  const cocoMat = TOON({ color: 0x6e4a2e });
   const segGeo = new THREE.CylinderGeometry(0.13, 0.18, 1.1, 9);
   const leafGeo = new THREE.SphereGeometry(1, 9, 7);
   const cocoGeo = new THREE.SphereGeometry(0.14, 8, 6);
@@ -651,7 +685,7 @@ function nearReserved(x, z) {
 {
   const N = 26;
   const geo = new THREE.IcosahedronGeometry(0.9, 1);
-  const mat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }), { grain: true });
+  const mat = stylize(TOON({ color: 0xffffff }), { grain: true });
   const rocks = new THREE.InstancedMesh(geo, mat, N);
   rocks.castShadow = true;
   const c = new THREE.Color();
@@ -674,11 +708,42 @@ function nearReserved(x, z) {
   scene.add(rocks);
 }
 
+// Champ d'herbe dense (milliers de brins qui ondulent — façon plaine d'Hyrule)
+{
+  const N = 6000;
+  const bladeGeo = new THREE.PlaneGeometry(0.1, 0.62, 1, 2);
+  bladeGeo.translate(0, 0.31, 0); // ancré au sol
+  const mat = stylize(TOON({ color: 0xffffff, side: THREE.DoubleSide }),
+    { sway: 0.16, swayY: [0.0, 0.55] });
+  const blades = new THREE.InstancedMesh(bladeGeo, mat, N);
+  blades.receiveShadow = true;
+  const c = new THREE.Color();
+  let bi = 0;
+  for (let i = 0; i < N * 3 && bi < N; i++) {
+    const a = rng() * Math.PI * 2;
+    const r = Math.sqrt(rng()) * 54;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const h = terrainH(x, z);
+    if (h < 0.45 || h > 3.4) continue;
+    if ((x - 0) ** 2 + (z + 38) ** 2 < 64) continue; // pas dans le temple
+    dummy.position.set(x, h - 0.02, z);
+    dummy.rotation.set((rng() - 0.5) * 0.22, rng() * Math.PI, (rng() - 0.5) * 0.22);
+    dummy.scale.set(0.8 + rng() * 0.6, 0.65 + rng() * 0.85, 1);
+    dummy.updateMatrix();
+    blades.setMatrixAt(bi, dummy.matrix);
+    c.setHSL(0.25 + rng() * 0.08, 0.55 + rng() * 0.15, 0.26 + rng() * 0.13);
+    blades.setColorAt(bi, c);
+    bi++;
+  }
+  blades.count = bi;
+  scene.add(blades);
+}
+
 // Touffes d'herbe (ondulent dans le vent)
 {
   const N = 320;
   const geo = new THREE.ConeGeometry(0.05, 0.42, 6);
-  const mat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  const mat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.16, swayY: [-0.21, 0.21] });
   const grass = new THREE.InstancedMesh(geo, mat, N);
   const c = new THREE.Color();
@@ -703,10 +768,10 @@ function nearReserved(x, z) {
 {
   const N = 80;
   const stemGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.34, 6);
-  const stemMat = stylize(new THREE.MeshLambertMaterial({ color: 0x3f8a3c }),
+  const stemMat = stylize(TOON({ color: 0x3f8a3c }),
     { sway: 0.07, swayY: [-0.17, 0.17] });
   const headGeo = new THREE.SphereGeometry(0.1, 10, 8);
-  const headMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  const headMat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.07, swayY: [-0.1, 0.1] });
   const stems = new THREE.InstancedMesh(stemGeo, stemMat, N);
   const heads = new THREE.InstancedMesh(headGeo, headMat, N);
@@ -773,6 +838,22 @@ let dust;
   scene.add(dust);
 }
 
+// Feuilles portées par le vent (dérivent à travers l'île)
+const windLeaves = [];
+{
+  const geo = new THREE.PlaneGeometry(0.13, 0.13);
+  const mats = [
+    TOON({ color: 0xa9cc70, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
+    TOON({ color: 0xc9df8e, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
+    TOON({ color: 0xe8c8d8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
+  ];
+  for (let i = 0; i < 34; i++) {
+    const m = new THREE.Mesh(geo, mats[i % mats.length]);
+    scene.add(m);
+    windLeaves.push({ m, seed: rng() * 100 });
+  }
+}
+
 // Papillons (voltigent le jour)
 const butterflies = [];
 {
@@ -808,7 +889,7 @@ const butterflies = [];
 // Nuages moelleux
 const clouds = [];
 {
-  const mat = new THREE.MeshLambertMaterial({
+  const mat = TOON({
     color: 0xffffff, transparent: true, opacity: 0.92,
     emissive: 0x9aa8c0, emissiveIntensity: 0.25,
   });
@@ -834,7 +915,7 @@ const clouds = [];
 // ------------------------------------------------------------
 function makeCharacter({ shirt, pants, skin, hat, hair, backpack }) {
   const g = new THREE.Group();
-  const M = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
+  const M = (c, extra = {}) => TOON({ color: c, ...extra });
   // rim light chaude : silhouettes douces et arrondies
   const rimOpts = { rim: 0xffe4c0, rimStrength: 0.22, rimPow: 3 };
   const skinMat = stylize(M(skin), rimOpts);
@@ -924,7 +1005,7 @@ const sword = new THREE.Group();
 {
   const blade = new THREE.Mesh(
     new THREE.BoxGeometry(0.1, 1.05, 0.03),
-    new THREE.MeshLambertMaterial({ color: 0xeaf2ff, emissive: 0x6a8ae8, emissiveIntensity: 1.6 })
+    TOON({ color: 0xeaf2ff, emissive: 0x6a8ae8, emissiveIntensity: 1.6 })
   );
   blade.position.y = -0.88;
   const tip = new THREE.Mesh(
@@ -934,7 +1015,7 @@ const sword = new THREE.Group();
   tip.position.y = -1.48; tip.rotation.x = Math.PI; tip.rotation.y = Math.PI / 4;
   const guard = new THREE.Mesh(
     new THREE.BoxGeometry(0.32, 0.06, 0.1),
-    new THREE.MeshLambertMaterial({ color: 0xd8b258, emissive: 0x574010, emissiveIntensity: 0.5 })
+    TOON({ color: 0xd8b258, emissive: 0x574010, emissiveIntensity: 0.5 })
   );
   guard.position.y = -0.32;
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -961,27 +1042,27 @@ scene.add(sage);
 {
   const robe = new THREE.Mesh(
     new THREE.ConeGeometry(0.62, 1.15, 18),
-    stylize(new THREE.MeshLambertMaterial({ color: 0x62519f }), { rim: 0xc8b8ff, rimStrength: 0.2, rimPow: 3 })
+    stylize(TOON({ color: 0x62519f }), { rim: 0xc8b8ff, rimStrength: 0.2, rimPow: 3 })
   );
   robe.position.y = 0.58;
   const rope = new THREE.Mesh(
     new THREE.TorusGeometry(0.4, 0.035, 6, 12),
-    new THREE.MeshLambertMaterial({ color: 0xd8c27a })
+    TOON({ color: 0xd8c27a })
   );
   rope.position.y = 0.95; rope.rotation.x = Math.PI / 2;
   const beard = new THREE.Mesh(
     new THREE.ConeGeometry(0.2, 0.55, 8),
-    new THREE.MeshLambertMaterial({ color: 0xeeeeee })
+    TOON({ color: 0xeeeeee })
   );
   beard.position.set(0, 1.48, 0.26); beard.rotation.x = 0.3;
   const staff = new THREE.Mesh(
     new THREE.CylinderGeometry(0.04, 0.05, 2.1, 6),
-    new THREE.MeshLambertMaterial({ color: 0x8a6540 })
+    TOON({ color: 0x8a6540 })
   );
   staff.position.set(0.62, 1.05, 0.1);
   const orb = new THREE.Mesh(
     new THREE.SphereGeometry(0.14, 12, 10),
-    new THREE.MeshLambertMaterial({ color: 0x9feaff, emissive: 0x2fa8c8, emissiveIntensity: 1.2 })
+    TOON({ color: 0x9feaff, emissive: 0x2fa8c8, emissiveIntensity: 1.2 })
   );
   orb.position.set(0.62, 2.15, 0.1);
   const orbGlow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1002,10 +1083,10 @@ const allFlames = []; // {group, phase} — scale flicker quand visible
 function makeFlame(scale = 1) {
   const flame = new THREE.Group();
   const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.9, 8),
-    new THREE.MeshLambertMaterial({ color: 0xffb03a, emissive: 0xff7a10, emissiveIntensity: 1.4, transparent: true, opacity: 0.95 }));
+    TOON({ color: 0xffb03a, emissive: 0xff7a10, emissiveIntensity: 1.4, transparent: true, opacity: 0.95 }));
   f1.position.y = 0.45;
   const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 8),
-    new THREE.MeshLambertMaterial({ color: 0xfff0a0, emissive: 0xffc040, emissiveIntensity: 1.6 }));
+    TOON({ color: 0xfff0a0, emissive: 0xffc040, emissiveIntensity: 1.6 }));
   f2.position.y = 0.6;
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture('rgba(255,230,170,0.95)', 'rgba(255,160,60,0.4)'),
@@ -1059,9 +1140,9 @@ function updateSmoke(dt) {
 const temple = new THREE.Group();
 let templeDoor, treasureRef;
 {
-  const stone = stylize(new THREE.MeshLambertMaterial({ color: 0xc4bba8 }), { grain: true });
-  const stoneDark = stylize(new THREE.MeshLambertMaterial({ color: 0x968e7a }), { grain: true });
-  const gold = new THREE.MeshLambertMaterial({ color: 0xd8b258, emissive: 0x3a2a08, emissiveIntensity: 0.4 });
+  const stone = stylize(TOON({ color: 0xc4bba8 }), { grain: true });
+  const stoneDark = stylize(TOON({ color: 0x968e7a }), { grain: true });
+  const gold = TOON({ color: 0xd8b258, emissive: 0x3a2a08, emissiveIntensity: 0.4 });
 
   const base = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 10), stoneDark);
   base.position.y = 0.6;
@@ -1108,7 +1189,7 @@ let templeDoor, treasureRef;
   pediment.position.set(0, 9.6, 2.2);
   temple.add(pediment);
   // mousse sur la plateforme
-  const mossMat = new THREE.MeshLambertMaterial({ color: 0x5a8a44 });
+  const mossMat = TOON({ color: 0x5a8a44 });
   const mrng = mulberry32(55);
   for (let k = 0; k < 8; k++) {
     const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + mrng() * 0.3, 1), mossMat);
@@ -1120,7 +1201,7 @@ let templeDoor, treasureRef;
   // porte dorée gravée de runes
   templeDoor = new THREE.Mesh(
     new THREE.BoxGeometry(3.4, 5.2, 0.5),
-    new THREE.MeshLambertMaterial({ map: makeRunesTexture(), emissive: 0x553a10, emissiveIntensity: 0.35 })
+    TOON({ map: makeRunesTexture(), emissive: 0x553a10, emissiveIntensity: 0.35 })
   );
   templeDoor.position.set(0, 3.8, 4.2);
   temple.add(templeDoor);
@@ -1128,7 +1209,7 @@ let templeDoor, treasureRef;
   // torches de l'entrée (toujours allumées)
   for (const sx of [-3.4, 3.4]) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 1.6, 6),
-      new THREE.MeshLambertMaterial({ color: 0x5c4530 }));
+      TOON({ color: 0x5c4530 }));
     post.position.set(sx, 2.0, 5.6);
     const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.12, 0.3, 8), stoneDark);
     cup.position.set(sx, 2.85, 5.6);
@@ -1140,7 +1221,7 @@ let templeDoor, treasureRef;
   // trésor (révélé quand la porte s'ouvre)
   treasureRef = new THREE.Mesh(
     new THREE.IcosahedronGeometry(0.9, 2),
-    new THREE.MeshLambertMaterial({ color: 0xffe27a, emissive: 0xcf9d2a, emissiveIntensity: 1.5 })
+    TOON({ color: 0xffe27a, emissive: 0xcf9d2a, emissiveIntensity: 1.5 })
   );
   treasureRef.position.set(0, 2.6, 0);
   const tGlow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1247,9 +1328,9 @@ const crystals = [];
 // Panneau indicateur au spawn
 {
   const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.4, 6),
-    new THREE.MeshLambertMaterial({ color: 0x7a5734 }));
+    TOON({ color: 0x7a5734 }));
   const board = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.08),
-    new THREE.MeshLambertMaterial({ color: 0x9c7648 }));
+    TOON({ color: 0x9c7648 }));
   board.position.y = 0.7;
   const sign = new THREE.Group();
   sign.add(post, board);
@@ -1264,10 +1345,10 @@ const crystals = [];
 // ------------------------------------------------------------
 const braziers = [];
 {
-  const bowlMat = stylize(new THREE.MeshLambertMaterial({ color: 0x5c5c68 }), { grain: true });
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c3f26 });
-  const emberMat = new THREE.MeshLambertMaterial({ color: 0xff8830, emissive: 0xdd4400, emissiveIntensity: 1.2 });
-  const stoneMat = stylize(new THREE.MeshLambertMaterial({ color: 0x8f8f99 }), { grain: true });
+  const bowlMat = stylize(TOON({ color: 0x5c5c68 }), { grain: true });
+  const woodMat = TOON({ color: 0x5c3f26 });
+  const emberMat = TOON({ color: 0xff8830, emissive: 0xdd4400, emissiveIntensity: 1.2 });
+  const stoneMat = stylize(TOON({ color: 0x8f8f99 }), { grain: true });
   for (let i = 0; i < BRAZIER_SPOTS.length; i++) {
     const [x, z] = BRAZIER_SPOTS[i];
     const h = Math.max(terrainH(x, z), 0.3);
@@ -1326,7 +1407,7 @@ const blobShadowGeo = new THREE.PlaneGeometry(1.7, 1.7);
 blobShadowGeo.rotateX(-Math.PI / 2);
 function makeSpectre(boss = false) {
   const g = new THREE.Group();
-  const bodyMat = stylize(new THREE.MeshLambertMaterial({
+  const bodyMat = stylize(TOON({
     color: boss ? 0xd8b8c8 : 0xc4bcf2,
     emissive: boss ? 0x8a2a3a : 0x4a3f9a,
     emissiveIntensity: 0.7,
@@ -1353,7 +1434,7 @@ function makeSpectre(boss = false) {
   if (boss) {
     const crown = new THREE.Mesh(
       new THREE.CylinderGeometry(0.3, 0.42, 0.35, 6, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0x8a8a95, emissive: 0x2a2a35, side: THREE.DoubleSide })
+      TOON({ color: 0x8a8a95, emissive: 0x2a2a35, side: THREE.DoubleSide })
     );
     crown.position.y = 2.15;
     g.add(crown);
@@ -2146,6 +2227,18 @@ function tick() {
     meteor.position.set(Math.cos(a) * 220, 200 + Math.random() * 120, Math.sin(a) * 220);
     meteorState.vel.set((Math.random() - 0.5) * 180, -70, (Math.random() - 0.5) * 180);
     meteor.material.rotation = Math.atan2(-meteorState.vel.y, meteorState.vel.x);
+  }
+
+  // feuilles portées par le vent
+  for (const lf of windLeaves) {
+    const s = lf.seed;
+    const x = -55 + (((s * 17.3) + t * (2.0 + (s % 1))) % 110);
+    const z = -55 + ((s * 31.7) % 110) + Math.sin(t * 0.6 + s) * 4;
+    const y = Math.max(terrainH(x, z), 0.1) + 0.9
+      + Math.sin(t * 1.4 + s) * 0.7 + Math.sin(t * 3.1 + s * 2) * 0.2;
+    lf.m.position.set(x, y, z);
+    lf.m.rotation.set(t * 2.1 + s, t * 1.5 + s * 2, t * 1.2 + s * 3);
+    lf.m.visible = Math.hypot(x, z) < 58;
   }
 
   // papillons (le jour)

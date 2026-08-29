@@ -39,7 +39,10 @@ Ou active simplement **GitHub Pages** sur ce dépôt (Settings → Pages → bra
 
 - **Zéro asset externe** : three.js est vendorisé (`js/vendor/`), les sons sont synthétisés en WebAudio, les textures (halos) générées en canvas.
 - **Île procédurale** : terrain déformé par bruit sinusoïdal, colorié par altitude (sable → herbe → roche), océan, nuages animés, lucioles.
-- **Perf mobile** : `InstancedMesh` pour les ~70 arbres, rochers et fleurs ; pixel ratio plafonné à 2 ; une seule lumière à ombres (1024²) ; brouillard pour limiter le draw distance.
+- **Direction artistique cel-shading** : tous les matériaux du monde passent par une rampe de lumière toon (bandes douces façon BOTW/Ghibli), avec rim light sur les personnages, vent en vertex shader sur la végétation et grain procédural sur la pierre.
+- **6 000 brins d'herbe instanciés** qui ondulent dans le vent, feuilles portées par la brise, papillons le jour, étoiles filantes la nuit.
+- **Pipeline HDR** : rendu half-float multisamplé, bloom (UnrealBloom), tone mapping ACES ; lumières dynamiques (épée, braseros, temple) ; crépuscule embrasé pendant la transition jour/nuit.
+- **Perf mobile** : `InstancedMesh` massif, pixel ratio plafonné à 2, une seule lumière à ombres (2048²) qui suit le joueur, brouillard pour limiter la draw distance.
 - **Gameplay** : machine à états de quête (8 étapes sur 2 actes), dialogues, collisions par cercles, caméra 3ᵉ personne avec orbite tactile, particules de collecte/combat/victoire.
 - **Acte 2** : cycle jour → nuit interpolé (ciel, brouillard, lumières, océan, lune), spectres avec IA de poursuite et recul, combat à l'épée avec fenêtre de frappe et invulnérabilité temporaire, boss à 6 points de vie, retour de l'aube scripté.
 - **Tactile soigné** : joystick dynamique (apparaît sous le pouce), multi-touch (marcher + tourner la caméra en même temps), `safe-area-inset` pour les encoches, blocage du zoom/scroll.
