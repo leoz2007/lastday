@@ -22,7 +22,7 @@ const WALK_R = 56;          // rayon max du joueur
 const PLAYER_SPEED = 6.2;
 const CRYSTAL_COUNT = 5;
 const MAX_HEARTS = 5;
-const SAVE_KEY = 'ile-oubliee-save-v2';
+const SAVE_KEY = 'porte-oubliee-save-v3';
 
 // ------------------------------------------------------------
 //  Terrain : hauteur procédurale (île avec collines)
@@ -320,7 +320,7 @@ scene.add(meteor);
 const meteorState = { life: 0, next: 12, vel: new THREE.Vector3() };
 
 // Soleil et lune (sprites)
-let sunSprite, moon;
+let sunSprite, moon, moon2, planet;
 {
   sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture('rgba(255,246,214,1)', 'rgba(255,214,130,0.5)'),
@@ -358,6 +358,41 @@ let sunSprite, moon;
   moonHalo.position.copy(moon.position);
   scene.add(moonHalo);
   moon.userData.halo = moonHalo;
+
+  // deuxième lune (P4X-731 en a deux)
+  moon2 = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeMoonTexture(), color: 0xbfe8dc, transparent: true, opacity: 0.3,
+    depthWrite: false, fog: false,
+  }));
+  moon2.scale.setScalar(24);
+  moon2.position.set(230, 150, -240);
+  scene.add(moon2);
+
+  // planète géante visible à l'horizon
+  const planetTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    const g1 = ctx.createRadialGradient(108, 100, 20, 128, 128, 126);
+    g1.addColorStop(0, 'rgba(190,210,235,1)');
+    g1.addColorStop(0.55, 'rgba(130,155,195,1)');
+    g1.addColorStop(0.85, 'rgba(80,100,140,1)');
+    g1.addColorStop(1, 'rgba(80,100,140,0)');
+    ctx.fillStyle = g1;
+    ctx.beginPath(); ctx.arc(128, 128, 124, 0, 7); ctx.fill();
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    for (const [y, h] of [[70, 14], [110, 9], [150, 18], [196, 10]]) ctx.fillRect(0, y, 256, h);
+    ctx.fillStyle = 'rgba(30,40,70,0.35)';
+    ctx.beginPath(); ctx.arc(210, 190, 150, 0, 7); ctx.fill();
+    return new THREE.CanvasTexture(c);
+  })();
+  planet = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: planetTex, transparent: true, opacity: 0.5, depthWrite: false, fog: false,
+  }));
+  planet.scale.setScalar(150);
+  planet.position.set(-320, 120, 180);
+  scene.add(planet);
 }
 
 // ------------------------------------------------------------
@@ -396,6 +431,8 @@ function applyMood() {
   sunSprite.userData.flare.material.opacity = (1 - night01) * 0.45 + dusk * 0.3;
   moon.material.opacity = night01 * 0.98;
   moon.userData.halo.material.opacity = night01 * 0.5;
+  moon2.material.opacity = 0.28 + night01 * 0.6;
+  planet.material.opacity = 0.5 - night01 * 0.12;
   bloomPass.strength = 0.42 + night01 * 0.42; // la nuit, les lueurs ressortent plus
 }
 
@@ -578,7 +615,7 @@ function nearReserved(x, z) {
     dummy.scale.setScalar(scale);
     dummy.updateMatrix();
     trunks.setMatrixAt(ti++, dummy.matrix);
-    const hue = 0.3 + rng() * 0.09;
+    const hue = rng() < 0.28 ? 0.44 + rng() * 0.07 : 0.3 + rng() * 0.09; // quelques pins turquoise
     for (let k = 0; k < 3; k++) {
       dummy.position.set(s.x - lean * k, s.h + (2.3 + k * 1.05) * scale, s.z);
       dummy.scale.setScalar(scale * (1 - k * 0.26));
@@ -616,7 +653,7 @@ function nearReserved(x, z) {
     dummy.scale.setScalar(scale);
     dummy.updateMatrix();
     trunks.setMatrixAt(ti++, dummy.matrix);
-    const hue = 0.24 + rng() * 0.14;
+    const hue = rng() < 0.22 ? 0.72 + rng() * 0.08 : 0.24 + rng() * 0.14; // quelques feuillus pourpres
     for (let k = 0; k < 3; k++) {
       const ox = (rng() - 0.5) * 1.1, oz = (rng() - 0.5) * 1.1;
       dummy.position.set(s.x + ox * scale, s.h + (1.9 + rng() * 0.7) * scale, s.z + oz * scale);
@@ -1034,22 +1071,12 @@ swordLight.position.set(0, 1.6, 0);
 player.add(swordLight);
 
 // Le Sage
-const sage = makeCharacter({ shirt: 0x7a66c0, pants: 0x4a3f75, skin: 0xe8bd92, hat: 0x5a4a9e });
+const sage = makeCharacter({ shirt: 0x55663f, pants: 0x3c4238, skin: 0xe8bd92, hair: 0xb8b8b8 });
 sage.position.set(4, terrainH(4, 3), 3);
 sage.rotation.y = Math.PI * 0.85;
 scene.add(sage);
 // robe, barbe, bâton
 {
-  const robe = new THREE.Mesh(
-    new THREE.ConeGeometry(0.62, 1.15, 18),
-    stylize(TOON({ color: 0x62519f }), { rim: 0xc8b8ff, rimStrength: 0.2, rimPow: 3 })
-  );
-  robe.position.y = 0.58;
-  const rope = new THREE.Mesh(
-    new THREE.TorusGeometry(0.4, 0.035, 6, 12),
-    TOON({ color: 0xd8c27a })
-  );
-  rope.position.y = 0.95; rope.rotation.x = Math.PI / 2;
   const beard = new THREE.Mesh(
     new THREE.ConeGeometry(0.2, 0.55, 8),
     TOON({ color: 0xeeeeee })
@@ -1071,8 +1098,8 @@ scene.add(sage);
   }));
   orbGlow.scale.setScalar(1.2);
   orbGlow.position.copy(orb.position);
-  robe.castShadow = beard.castShadow = staff.castShadow = true;
-  sage.add(robe, rope, beard, staff, orb, orbGlow);
+  beard.castShadow = staff.castShadow = true;
+  sage.add(beard, staff, orb, orbGlow);
 }
 colliders.push({ x: sage.position.x, z: sage.position.z, r: 0.7 });
 
@@ -1080,16 +1107,22 @@ colliders.push({ x: sage.position.x, z: sage.position.z, r: 0.7 });
 //  Flammes & fumée (partagées : braseros + torches du temple)
 // ------------------------------------------------------------
 const allFlames = []; // {group, phase} — scale flicker quand visible
-function makeFlame(scale = 1) {
+function makeFlame(scale = 1, energy = false) {
   const flame = new THREE.Group();
   const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.9, 8),
-    TOON({ color: 0xffb03a, emissive: 0xff7a10, emissiveIntensity: 1.4, transparent: true, opacity: 0.95 }));
+    energy
+      ? TOON({ color: 0x7fd4ff, emissive: 0x1f7fe8, emissiveIntensity: 1.5, transparent: true, opacity: 0.92 })
+      : TOON({ color: 0xffb03a, emissive: 0xff7a10, emissiveIntensity: 1.4, transparent: true, opacity: 0.95 }));
   f1.position.y = 0.45;
   const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 8),
-    TOON({ color: 0xfff0a0, emissive: 0xffc040, emissiveIntensity: 1.6 }));
+    energy
+      ? TOON({ color: 0xe8f8ff, emissive: 0x8fd0ff, emissiveIntensity: 1.7 })
+      : TOON({ color: 0xfff0a0, emissive: 0xffc040, emissiveIntensity: 1.6 }));
   f2.position.y = 0.6;
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('rgba(255,230,170,0.95)', 'rgba(255,160,60,0.4)'),
+    map: energy
+      ? makeGlowTexture('rgba(200,235,255,0.95)', 'rgba(90,170,255,0.4)')
+      : makeGlowTexture('rgba(255,230,170,0.95)', 'rgba(255,160,60,0.4)'),
     transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
   glow.scale.setScalar(3.2);
@@ -1135,121 +1168,164 @@ function updateSmoke(dt) {
 }
 
 // ------------------------------------------------------------
-//  Le temple ancien
+//  La Porte des Étoiles + DHD (hommage fan, 100 % procédural)
 // ------------------------------------------------------------
-const temple = new THREE.Group();
-let templeDoor, treasureRef;
+const temple = new THREE.Group();      // zone de la Porte
+const chevrons = [];
+let symbolBand, horizonMesh;
+const horizonU = { uTime: { value: 0 }, uOpen: { value: 0 } };
+let horizonTarget = 0;
+const templeBaseY = terrainH(0, -38);
 {
-  const stone = stylize(TOON({ color: 0xc4bba8 }), { grain: true });
-  const stoneDark = stylize(TOON({ color: 0x968e7a }), { grain: true });
-  const gold = TOON({ color: 0xd8b258, emissive: 0x3a2a08, emissiveIntensity: 0.4 });
+  const stone = stylize(TOON({ color: 0xb9b2a2 }), { grain: true });
+  const stoneDark = stylize(TOON({ color: 0x8f8878 }), { grain: true });
+  const naqahdah = stylize(TOON({ color: 0x6a7180 }), { grain: true });
+  const naqahdahDark = TOON({ color: 0x4a4f5c });
 
-  const base = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 10), stoneDark);
-  base.position.y = 0.6;
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(14.6, 0.25, 10.6), stone);
-  trim.position.y = 1.15;
-  temple.add(base, trim);
-  // marches
+  // dais circulaire + marches
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(6.6, 7.2, 0.7, 28), stoneDark);
+  dais.position.y = 0.35;
+  const daisTop = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.6, 0.25, 28), stone);
+  daisTop.position.y = 0.82;
+  temple.add(dais, daisTop);
   for (let k = 0; k < 3; k++) {
-    const step = new THREE.Mesh(new THREE.BoxGeometry(6.5 - k * 0.7, 0.34, 1.1), stoneDark);
-    step.position.set(0, 0.17 + k * 0.34, 6.6 - k * 0.62);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(4.6 - k * 0.5, 0.3, 1.2), stoneDark);
+    step.position.set(0, 0.15 + k * 0.3, 7.6 - k * 0.7);
     temple.add(step);
   }
-  // colonnes avec base et chapiteau
-  for (const sx of [-5.2, -1.8, 1.8, 5.2]) {
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 5.6, 16), stone);
-    col.position.set(sx, 4.2, 4.2);
-    const cbase = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 1.5), stoneDark);
-    cbase.position.set(sx, 1.6, 4.2);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 1.4), stoneDark);
-    cap.position.set(sx, 7.15, 4.2);
-    temple.add(col, cbase, cap);
-  }
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(13.6, 1.0, 1.7), stone);
-  lintel.position.set(0, 7.75, 4.2);
-  const lintelTrim = new THREE.Mesh(new THREE.BoxGeometry(13.9, 0.22, 1.9), gold);
-  lintelTrim.position.set(0, 8.3, 4.2);
-  temple.add(lintel, lintelTrim);
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(12, 7, 1), stone);
-  backWall.position.set(0, 4.7, -3.5);
-  temple.add(backWall);
-  for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 7, 7), stone);
-    wall.position.set(side * 6, 4.7, 0.2);
-    temple.add(wall);
-  }
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(13.8, 0.9, 9.8), stoneDark);
-  roof.position.set(0, 8.55, 0.2);
-  temple.add(roof);
-  // fronton triangulaire
-  const pedGeo = new THREE.CylinderGeometry(2.5, 2.5, 13.4, 3, 1);
-  pedGeo.rotateZ(Math.PI / 2);
-  const pediment = new THREE.Mesh(pedGeo, stone);
-  pediment.scale.set(1, 1, 0.45);
-  pediment.position.set(0, 9.6, 2.2);
-  temple.add(pediment);
-  // mousse sur la plateforme
-  const mossMat = TOON({ color: 0x5a8a44 });
-  const mrng = mulberry32(55);
-  for (let k = 0; k < 8; k++) {
-    const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + mrng() * 0.3, 1), mossMat);
-    moss.position.set((mrng() - 0.5) * 13, 1.25, 3.2 + mrng() * 2.6);
-    moss.scale.y = 0.25;
-    temple.add(moss);
+
+  // anneau extérieur en naqahdah
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(4.1, 0.52, 14, 48), naqahdah);
+  ring.position.y = 5.15;
+  temple.add(ring);
+
+  // bande de symboles (glyphes générés en canvas)
+  const glyphTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 32;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#343948';
+    ctx.fillRect(0, 0, 512, 32);
+    ctx.strokeStyle = '#d8b878';
+    ctx.lineWidth = 2; ctx.lineCap = 'round';
+    const grng = mulberry32(93);
+    for (let i = 0; i < 39; i++) {
+      const x0 = i * 13.1 + 2;
+      ctx.beginPath();
+      ctx.moveTo(x0 + grng() * 9, 4 + grng() * 24);
+      ctx.lineTo(x0 + grng() * 9, 4 + grng() * 24);
+      ctx.lineTo(x0 + grng() * 9, 4 + grng() * 24);
+      ctx.stroke();
+      if (grng() > 0.55) {
+        ctx.beginPath();
+        ctx.arc(x0 + 4 + grng() * 5, 8 + grng() * 16, 2.2, 0, 7);
+        ctx.stroke();
+      }
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  })();
+  const bandGeo = new THREE.CylinderGeometry(3.72, 3.72, 0.6, 48, 1, true);
+  bandGeo.rotateX(Math.PI / 2); // axe le long de Z
+  symbolBand = new THREE.Mesh(bandGeo, TOON({ map: glyphTex, emissive: 0x6a6050, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
+  symbolBand.position.y = 5.15;
+  temple.add(symbolBand);
+
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(3.45, 0.16, 10, 48), naqahdahDark);
+  innerRing.position.y = 5.15;
+  temple.add(innerRing);
+
+  // 9 chevrons (s'illuminent pendant la composition)
+  for (let i = 0; i < 9; i++) {
+    const a = Math.PI / 2 + (i / 9) * Math.PI * 2;
+    const ch = new THREE.Mesh(
+      new THREE.ConeGeometry(0.3, 0.55, 3),
+      TOON({ color: 0x9a6a35, emissive: 0xff7a20, emissiveIntensity: 0 })
+    );
+    ch.position.set(Math.cos(a) * 4.15, 5.15 + Math.sin(a) * 4.15, 0.42);
+    ch.rotation.z = a + Math.PI / 2; // pointe vers le centre
+    temple.add(ch);
+    chevrons.push(ch);
   }
 
-  // porte dorée gravée de runes
-  templeDoor = new THREE.Mesh(
-    new THREE.BoxGeometry(3.4, 5.2, 0.5),
-    TOON({ map: makeRunesTexture(), emissive: 0x553a10, emissiveIntensity: 0.35 })
+  // l'horizon des événements (la « flaque » animée en shader)
+  horizonMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(3.4, 48),
+    new THREE.ShaderMaterial({
+      uniforms: horizonU,
+      transparent: true, side: THREE.DoubleSide, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `
+        uniform float uTime; uniform float uOpen; varying vec2 vUv;
+        void main(){
+          vec2 p = vUv - 0.5;
+          float r = length(p) * 2.0;
+          if (r > 1.0 || uOpen < 0.01) discard;
+          float rip = sin(r * 26.0 - uTime * 3.4) * 0.5 + 0.5;
+          float rip2 = sin(p.x * 20.0 + uTime * 1.8) * sin(p.y * 18.0 - uTime * 2.2) * 0.5 + 0.5;
+          vec3 deep = vec3(0.03, 0.12, 0.30);
+          vec3 mid  = vec3(0.10, 0.36, 0.72);
+          vec3 hi   = vec3(0.55, 0.85, 1.25);
+          vec3 col = mix(mid, deep, r);
+          col += hi * rip * 0.28 * (1.0 - r * 0.6);
+          col += hi * rip2 * 0.18;
+          col += hi * smoothstep(0.88, 1.0, r) * 1.1;
+          gl_FragColor = vec4(col * uOpen, uOpen * (0.94 - r * 0.12));
+        }`,
+    })
   );
-  templeDoor.position.set(0, 3.8, 4.2);
-  temple.add(templeDoor);
+  horizonMesh.position.y = 5.15;
+  temple.add(horizonMesh);
 
-  // torches de l'entrée (toujours allumées)
-  for (const sx of [-3.4, 3.4]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 1.6, 6),
-      TOON({ color: 0x5c4530 }));
-    post.position.set(sx, 2.0, 5.6);
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.12, 0.3, 8), stoneDark);
-    cup.position.set(sx, 2.85, 5.6);
-    const flame = makeFlame(0.55);
-    flame.position.set(sx, 2.95, 5.6);
-    temple.add(post, cup, flame);
+  // colonnes en ruine autour du dais
+  for (const [cx, cz, hgt] of [[-8, -2, 3.2], [8, -1, 2.4], [-6.5, 5, 1.6], [7, 4.5, 4.0]]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, hgt, 12), stone);
+    col.position.set(cx, hgt / 2 + 0.2, cz);
+    col.rotation.z = (cx > 0 ? -1 : 1) * 0.05;
+    temple.add(col);
+    colliders.push({ x: cx, z: -38 + cz, r: 0.8 });
   }
 
-  // trésor (révélé quand la porte s'ouvre)
-  treasureRef = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.9, 2),
-    TOON({ color: 0xffe27a, emissive: 0xcf9d2a, emissiveIntensity: 1.5 })
-  );
-  treasureRef.position.set(0, 2.6, 0);
-  const tGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('rgba(255,240,180,0.9)', 'rgba(255,200,90,0.35)'),
-    transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false,
-  }));
-  tGlow.scale.setScalar(4.5);
-  tGlow.position.set(0, 2.6, 0);
-  temple.add(treasureRef, tGlow);
-
-  const th = terrainH(0, -38);
-  temple.position.set(0, th, -38);
-  temple.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  temple.position.set(0, templeBaseY, -38);
+  temple.traverse(o => { if (o.isMesh && o !== horizonMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(temple);
-  colliders.push(
-    { x: 0, z: -38 - 3.5, r: 6.5 },
-    { x: -6, z: -38, r: 2 }, { x: 6, z: -38, r: 2 },
-  );
-  // fumée des torches du temple
-  for (const sx of [-3.4, 3.4]) {
-    smokeSources.push({ x: sx, y: th + 3.6, z: -38 + 5.6, active: () => true });
-  }
+  colliders.push({ x: -3.6, z: -38, r: 1.0 }, { x: 3.6, z: -38, r: 1.0 });
 }
-const doorSpot = new THREE.Vector3(0, 0, -38 + 6.5); // point d'interaction devant la porte
-let doorOpenAnim = 0;
-// lumière intérieure du temple, allumée quand la porte s'ouvre
-const templeLight = new THREE.PointLight(0xffc070, 0, 16, 1.6);
-templeLight.position.set(0, 3.2, 0);
+
+// Le DHD (console de composition)
+{
+  const dhd = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.62, 1.0, 10),
+    stylize(TOON({ color: 0x6a6f7c }), { grain: true }));
+  base.position.y = 0.5;
+  const consoleTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.75, 0.32, 14), TOON({ color: 0x545968 }));
+  consoleTop.position.y = 1.1;
+  consoleTop.rotation.x = 0.35;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10),
+    TOON({ color: 0xff8850, emissive: 0xd84a10, emissiveIntensity: 0.8 }));
+  dome.position.set(0, 1.32, -0.1);
+  const domeGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture('rgba(255,190,140,0.9)', 'rgba(255,120,50,0.35)'),
+    transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  domeGlow.scale.setScalar(1.6);
+  domeGlow.position.copy(dome.position);
+  dhd.add(base, consoleTop, dome, domeGlow);
+  dhd.scale.setScalar(1.35);
+  dhd.position.set(0, terrainH(0, -30.5), -30.5);
+  dhd.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  scene.add(dhd);
+  colliders.push({ x: 0, z: -30.5, r: 0.8 });
+}
+
+const doorSpot = new THREE.Vector3(0, 0, -29.2); // point d'interaction devant le DHD
+let dialT = 0;              // séquence de composition
+let dialChevrons = 0;
+let kawooshDone = false, voiceShown = false;
+// lumière de la Porte (s'embrase au kawoosh)
+const templeLight = new THREE.PointLight(0x66c8ff, 0, 22, 1.6);
+templeLight.position.set(0, 5.2, 0);
 temple.add(templeLight);
 let templeLightTarget = 0;
 
@@ -1266,12 +1342,12 @@ const crystals = [];
   for (let i = 0; i < CRYSTAL_COUNT; i++) {
     const [x, z] = spots[i];
     const mat = new THREE.MeshPhongMaterial({
-      color: 0x9fdcff, emissive: 0x2f7fd8, emissiveIntensity: 1.3,
+      color: 0xffc890, emissive: 0xe85a10, emissiveIntensity: 1.2,
       shininess: 90, specular: 0xffffff,
-      transparent: true, opacity: 0.85,
+      transparent: true, opacity: 0.88,
     });
     const m = new THREE.Mesh(geo, mat);
-    const inner = new THREE.Mesh(innerGeo, new THREE.MeshBasicMaterial({ color: 0xeaffff }));
+    const inner = new THREE.Mesh(innerGeo, new THREE.MeshBasicMaterial({ color: 0xfff0d8 }));
     m.add(inner);
     // pilier de lumière visible de loin
     const beamTex = (() => {
@@ -1279,9 +1355,9 @@ const crystals = [];
       c.width = 16; c.height = 128;
       const ctx = c.getContext('2d');
       const grad = ctx.createLinearGradient(0, 128, 0, 0);
-      grad.addColorStop(0, 'rgba(150,215,255,0.55)');
-      grad.addColorStop(0.5, 'rgba(150,215,255,0.18)');
-      grad.addColorStop(1, 'rgba(150,215,255,0)');
+      grad.addColorStop(0, 'rgba(255,190,120,0.55)');
+      grad.addColorStop(0.5, 'rgba(255,190,120,0.18)');
+      grad.addColorStop(1, 'rgba(255,190,120,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 16, 128);
       return new THREE.CanvasTexture(c);
@@ -1299,7 +1375,7 @@ const crystals = [];
     m.position.set(x, h + 1.2, z);
     m.castShadow = true;
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glowTex, color: 0x9fe0ff, transparent: true,
+      map: glowTex, color: 0xffc088, transparent: true,
       opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     halo.scale.setScalar(3);
@@ -1316,7 +1392,7 @@ const crystals = [];
     const sGeo = new THREE.BufferGeometry();
     sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
     const sparkles = new THREE.Points(sGeo, new THREE.PointsMaterial({
-      map: glowTex, color: 0xcfeaff, size: 0.22, transparent: true, opacity: 0.9,
+      map: glowTex, color: 0xffe0b8, size: 0.22, transparent: true, opacity: 0.9,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     m.add(sparkles);
@@ -1341,47 +1417,44 @@ const crystals = [];
 }
 
 // ------------------------------------------------------------
-//  Braseros sacrés (acte 2)
+//  Obélisques de défense lantiens (acte 2)
+//  (nom interne « braziers » conservé pour les sauvegardes)
 // ------------------------------------------------------------
 const braziers = [];
 {
-  const bowlMat = stylize(TOON({ color: 0x5c5c68 }), { grain: true });
-  const woodMat = TOON({ color: 0x5c3f26 });
-  const emberMat = TOON({ color: 0xff8830, emissive: 0xdd4400, emissiveIntensity: 1.2 });
-  const stoneMat = stylize(TOON({ color: 0x8f8f99 }), { grain: true });
+  const stoneMat = stylize(TOON({ color: 0x7a7f8c }), { grain: true });
   for (let i = 0; i < BRAZIER_SPOTS.length; i++) {
     const [x, z] = BRAZIER_SPOTS[i];
     const h = Math.max(terrainH(x, z), 0.3);
     const g = new THREE.Group();
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.34, 1.0, 12), bowlMat);
-    foot.position.y = 0.5;
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.32, 0.45, 14), bowlMat);
-    bowl.position.y = 1.15;
-    const wood = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), woodMat);
-    wood.position.y = 1.35; wood.scale.y = 0.5;
-    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), emberMat);
-    ember.position.y = 1.36; ember.scale.y = 0.4;
-    ember.visible = false;
-    // cercle de pierres au sol
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2;
-      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + (i + k) % 3 * 0.05, 1), stoneMat);
-      st.position.set(Math.cos(a) * 1.3, 0.08, Math.sin(a) * 1.3);
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 1.1), stoneMat);
+    plinth.position.y = 0.25;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.4, 2.4, 4), stoneMat);
+    shaft.position.y = 1.7; shaft.rotation.y = Math.PI / 4;
+    const groove = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.0, 0.47),
+      TOON({ color: 0x9fd8ff, emissive: 0x2f8fd8, emissiveIntensity: 0.35 }));
+    groove.position.y = 1.65;
+    // cristal sommital
+    const ember = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0),
+      TOON({ color: 0x9fe4ff, emissive: 0x2f8fd8, emissiveIntensity: 0.5, transparent: true, opacity: 0.95 }));
+    ember.position.y = 3.25;
+    const flame = makeFlame(0.9, true);
+    flame.position.y = 3.15;
+    flame.visible = false;
+    const light = new THREE.PointLight(0x55baff, 0, 11, 1.8);
+    light.position.y = 3.2;
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2;
+      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15 + ((i + k) % 3) * 0.05, 1), stoneMat);
+      st.position.set(Math.cos(a) * 1.2, 0.08, Math.sin(a) * 1.2);
       g.add(st);
     }
-    const flame = makeFlame(1);
-    flame.position.y = 1.45;
-    flame.visible = false;
-    const light = new THREE.PointLight(0xff9040, 0, 10, 1.8);
-    light.position.y = 2.0;
-    g.add(foot, bowl, wood, ember, flame, light);
+    g.add(plinth, shaft, groove, ember, flame, light);
     g.position.set(x, h, z);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g);
     colliders.push({ x, z, r: 0.7 });
-    const b = { group: g, flame, ember, light, lit: false, x, z };
-    braziers.push(b);
-    smokeSources.push({ x, y: h + 2.4, z, active: () => b.lit });
+    braziers.push({ group: g, flame, ember, light, lit: false, x, z });
   }
 }
 function litCount() { return braziers.filter(b => b.lit).length; }
@@ -1475,7 +1548,7 @@ function spawnEnemies() {
 }
 function spawnBoss() {
   bossRef = spawnSpectre(0, -26, true);
-  toast('Le Gardien des Brumes apparaît !');
+  toast("L'Entité Alpha apparaît !");
   sfx.boss();
 }
 
@@ -1555,6 +1628,8 @@ const sfx = {
   collect: () => { tone(660, 0.12, 'sine', 0.2); tone(880, 0.14, 'sine', 0.18, 0.09); tone(1320, 0.2, 'sine', 0.14, 0.18); },
   quest: () => { tone(523, 0.15, 'triangle', 0.16); tone(659, 0.15, 'triangle', 0.16, 0.12); tone(784, 0.25, 'triangle', 0.16, 0.24); },
   door: () => { tone(120, 0.7, 'sawtooth', 0.12); tone(90, 0.9, 'sawtooth', 0.1, 0.15); },
+  chevron: () => { tone(160, 0.1, 'square', 0.16); tone(80, 0.2, 'sawtooth', 0.14, 0.05); },
+  gate: () => { tone(50, 1.5, 'sawtooth', 0.26); tone(75, 1.2, 'sawtooth', 0.2, 0.1); tone(320, 0.5, 'sine', 0.15, 0.15); tone(150, 0.9, 'triangle', 0.12, 0.35); },
   swing: () => { tone(300, 0.07, 'sawtooth', 0.09); tone(190, 0.09, 'sawtooth', 0.07, 0.04); },
   hit: () => { tone(520, 0.06, 'square', 0.14); tone(260, 0.1, 'square', 0.1, 0.04); },
   hurt: () => { tone(140, 0.22, 'sawtooth', 0.2); tone(90, 0.3, 'sawtooth', 0.16, 0.08); },
@@ -1604,11 +1679,11 @@ function renderHearts() {
   ui.hearts.textContent = '❤️'.repeat(hearts) + '🖤'.repeat(MAX_HEARTS - hearts);
 }
 function brazierBanner() {
-  setBanner(`🔥 Rallume les <b>braseros sacrés</b> — ${litCount()} / ${braziers.length}`);
+  setBanner(`⚡ Réactive les <b>obélisques lantiens</b> — ${litCount()} / ${braziers.length}`);
 }
 function bossBanner() {
   const hp = bossRef && !bossRef.dead ? bossRef.hp : 0;
-  setBanner(`⚔️ Terrasse le <b>Gardien des Brumes</b> ! ${'🔺'.repeat(Math.max(hp, 0))}`);
+  setBanner(`⚔️ Détruis l'<b>Entité Alpha</b> ! ${'🔺'.repeat(Math.max(hp, 0))}`);
 }
 function playMs() {
   return quest.priorMs + (quest.startTime ? performance.now() - quest.startTime : 0);
@@ -1643,66 +1718,66 @@ function clearSave() {
 // ------------------------------------------------------------
 const DIALOGUES = {
   sageIntro: {
-    speaker: 'Le Sage',
+    speaker: 'Dr Vance',
     lines: [
-      "Ah… un visiteur ! Cela faisait bien longtemps.",
-      "Cette île cache un temple ancien, mais sa porte est scellée depuis des siècles.",
-      "Jadis, cinq cristaux de lumière alimentaient son mécanisme. Une tempête les a dispersés aux quatre coins de l'île…",
-      "Rapporte-moi les 5 cristaux, et je te confierai la clé du temple. Bonne chance, voyageur !",
+      "Dr Elias Vance, archéologue du SGC. Mon équipe est repartie par la Porte juste avant la tempête de naquadah…",
+      "…et cette tempête a grillé le DHD. Sans lui, impossible de composer une adresse : nous sommes coincés sur P4X-731.",
+      "Ses 5 cristaux de contrôle ont été éjectés et dispersés sur l'île. Ils émettent une lueur orange, tu ne peux pas les rater.",
+      "Rapporte-les-moi, et je te montrerai comment composer l'adresse de la Terre !",
     ],
     onEnd: () => {
       quest.stage = 'collect';
       if (!quest.startTime) quest.startTime = performance.now();
       ui.counter.style.display = 'flex';
-      setBanner("🔍 Retrouve les <b>5 cristaux</b> dispersés sur l'île");
+      setBanner("🔍 Retrouve les <b>5 cristaux du DHD</b> dispersés sur l'île");
       sfx.quest();
-      toast('Nouvelle quête !');
+      toast('Nouvelle mission !');
       saveGame('collect');
     },
   },
   sageWait: {
-    speaker: 'Le Sage',
-    lines: ["Les cristaux brillent la nuit comme le jour… Ouvre l'œil, ils ne sont jamais loin des sentiers."],
+    speaker: 'Dr Vance',
+    lines: ["Cherche les lueurs orange et leurs piliers de lumière… Les cristaux sont tombés près des sentiers, des plages et des collines."],
   },
   sageDone: {
-    speaker: 'Le Sage',
+    speaker: 'Dr Vance',
     lines: [
-      "Par les anciens… tu les as tous retrouvés !",
-      "Voici la clé du temple. Il se dresse au nord de l'île, derrière la colline.",
-      "Va, et découvre ce que nos ancêtres y ont laissé…",
+      "Excellent travail ! Voilà… les cristaux sont réinstallés, le DHD répond.",
+      "Va au DHD, au nord — la Porte des Étoiles se dresse juste derrière. Pose la main sur le dôme central : l'adresse de la Terre se composera.",
+      "J'espère seulement que la Porte n'a rien… attiré pendant la panne.",
     ],
     onEnd: () => {
       quest.stage = 'temple';
-      setBanner("🗝️ Ouvre la <b>porte du temple</b>, au nord de l'île");
+      setBanner("🖐 Va au <b>DHD</b>, au nord, et compose l'adresse de la Terre");
       sfx.quest();
-      toast('Clé du temple obtenue !');
+      toast('DHD réparé !');
       saveGame('temple');
     },
   },
   sageAfter: {
-    speaker: 'Le Sage',
-    lines: ["Le temple t'attend au nord. La clé ne sert qu'une fois, fais-en bon usage !"],
+    speaker: 'Dr Vance',
+    lines: ["Le DHD est au nord, juste devant la Porte. Pose la main sur le dôme central, le reste est automatique !"],
   },
   templeVoice: {
-    speaker: 'Une Voix Ancienne',
+    speaker: 'Alerte du DHD',
     lines: [
-      "Tu saisis l'Épée de Lumière, endormie depuis mille ans…",
-      "Mais prends garde, voyageur : en brisant le sceau, tu as libéré les Brumes.",
-      "La nuit tombe sur l'île. Des spectres rôdent déjà entre les arbres…",
-      "Rallume les 4 braseros sacrés pour affaiblir les Brumes… puis terrasse leur Gardien !",
+      "⚠ VORTEX ENTRANT INSTABLE — signature d'énergie inconnue détectée…",
+      "Quelque chose a traversé l'horizon des événements avant la fermeture du vortex !",
+      "L'entité brouille l'atmosphère : une nuit artificielle tombe sur P4X-731…",
+      "Protocole lantien : réactive les 4 obélisques de défense, et détruis l'Entité avec la lame ancienne apparue près du dais !",
     ],
     onEnd: () => { startAct2(); },
   },
   sageNight: {
-    speaker: 'Le Sage',
+    speaker: 'Dr Vance',
     lines: [
-      "Les Brumes… je les croyais légende. Ton épée est leur seule faiblesse !",
-      "Rallume les braseros, petit. Leur flamme sacrée affaiblit les spectres. Et reviens me voir si ton courage vacille.",
+      "Une entité d'énergie ! J'ai lu des rapports lantiens à ce sujet… Les obélisques de défense peuvent l'affaiblir — réactive-les tous les quatre !",
+      "Cette lame ancienne canalise l'énergie : c'est la seule arme qui la blesse. Reviens me voir si ton courage vacille.",
     ],
   },
   sageBoss: {
-    speaker: 'Le Sage',
-    lines: ["Le Gardien des Brumes garde le temple. Frappe-le sans relâche — chaque coup de ton épée le rapproche du néant !"],
+    speaker: 'Dr Vance',
+    lines: ["L'Entité Alpha protège la Porte ! Frappe-la sans relâche — chaque coup de lame disperse sa cohérence énergétique !"],
   },
 };
 
@@ -1738,6 +1813,10 @@ ui.dialogue.addEventListener('pointerdown', e => { e.stopPropagation(); advanceD
 function startAct2() {
   quest.stage = 'braziers';
   nightTarget = 1;
+  // le vortex s'est effondré après l'incursion de l'Entité
+  horizonTarget = 0;
+  templeLightTarget = 0.5;
+  dialChevrons = 0;
   sword.visible = true;
   ui.hearts.style.display = 'flex';
   ui.attackBtn.style.display = 'flex';
@@ -1745,7 +1824,7 @@ function startAct2() {
   spawnEnemies();
   brazierBanner();
   sfx.quest();
-  toast("L'Épée de Lumière est à toi !");
+  toast('La lame ancienne est à toi !');
   saveGame('braziers');
 }
 
@@ -1753,8 +1832,8 @@ function lightBrazier(b) {
   if (b.lit) return;
   b.lit = true;
   b.flame.visible = true;
-  b.ember.visible = true;
-  spawnBurst(new THREE.Vector3(b.x, b.group.position.y + 1.8, b.z), 0xffb050, 30, 5);
+  b.ember.material.emissiveIntensity = 2.2;
+  spawnBurst(new THREE.Vector3(b.x, b.group.position.y + 3.2, b.z), 0x7fd4ff, 30, 5);
   sfx.brazier();
   if (litCount() >= braziers.length) {
     quest.stage = 'boss';
@@ -1763,7 +1842,7 @@ function lightBrazier(b) {
     saveGame('boss');
   } else {
     brazierBanner();
-    toast(`Brasero ${litCount()} / ${braziers.length}`);
+    toast(`Obélisque ${litCount()} / ${braziers.length}`);
     saveGame('braziers');
   }
 }
@@ -1801,8 +1880,11 @@ function damageEnemy(e) {
     if (e.boss) {
       quest.stage = 'dawn';
       nightTarget = 0;
-      setBanner('🌅 Les Brumes se dissipent…');
-      toast('Le Gardien est vaincu !');
+      dialChevrons = 9;
+      horizonTarget = 1;
+      templeLightTarget = 3.0;
+      setBanner('🌀 La Porte se réactive…');
+      toast("L'Entité est détruite !");
       sfx.victory();
       setTimeout(finalVictory, 3200);
     }
@@ -1828,7 +1910,7 @@ function damagePlayer(e) {
     hearts = MAX_HEARTS;
     renderHearts();
     player.position.set(0, terrainH(0, 10), 10);
-    toast('Les Brumes t\'ont repoussé au campement…');
+    toast("L'Entité t'a repoussé au campement…");
   }
 }
 
@@ -1838,7 +1920,7 @@ function finalVictory() {
   const secs = Math.round(playMs() / 1000);
   const m = Math.floor(secs / 60), s = secs % 60;
   document.getElementById('victoryText').textContent =
-    `Cristaux retrouvés, braseros rallumés, Gardien des Brumes terrassé : tu as sauvé l'Île Oubliée en ${m > 0 ? m + ' min ' : ''}${s} s. Les anciens chanteront ton nom !`;
+    `Cristaux du DHD récupérés, obélisques réactivés, Entité Alpha détruite : chevron 7 enclenché en ${m > 0 ? m + ' min ' : ''}${s} s. Bon retour sur Terre !`;
   const pos = player.position;
   for (let i = 0; i < 5; i++) {
     setTimeout(() => {
@@ -1982,14 +2064,14 @@ function updateInteractables() {
 
   if (!next && quest.stage === 'temple') {
     const dDoor = Math.hypot(p.x - doorSpot.x, p.z - doorSpot.z);
-    if (dDoor < 4.5) next = { label: '🗝️ Ouvrir', action: openTemple };
+    if (dDoor < 3.5) next = { label: '🖐 Composer', action: openTemple };
   }
 
   if (!next && quest.stage === 'braziers') {
     for (const b of braziers) {
       if (b.lit) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) < 2.8) {
-        next = { label: '🔥 Allumer', action: () => lightBrazier(b) };
+        next = { label: '⚡ Activer', action: () => lightBrazier(b) };
         break;
       }
     }
@@ -2012,9 +2094,8 @@ ui.attackBtn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preve
 function openTemple() {
   if (quest.stage !== 'temple') return;
   quest.stage = 'opening';
-  templeLightTarget = 2.4;
   sfx.door();
-  setBanner('🏛️ La porte du temple s\'ouvre…');
+  setBanner('🌀 Composition en cours… <b>chevrons en verrouillage</b>');
   ui.actionBtn.style.display = 'none';
 }
 
@@ -2022,15 +2103,15 @@ function collectCrystal(c) {
   c.taken = true;
   quest.collected++;
   ui.counterTxt.textContent = `${quest.collected} / ${CRYSTAL_COUNT}`;
-  spawnBurst(c.mesh.position.clone(), 0x9fe0ff, 30, 6);
+  spawnBurst(c.mesh.position.clone(), 0xffb060, 30, 6);
   sfx.collect();
   scene.remove(c.mesh);
   if (quest.collected >= CRYSTAL_COUNT) {
-    setBanner('✅ Tous les cristaux ! Retourne voir le <b>Sage</b>');
+    setBanner('✅ Tous les cristaux ! Retourne voir le <b>Dr Vance</b>');
     sfx.quest();
     toast('5 / 5 cristaux !');
   } else {
-    toast(`Cristal ${quest.collected} / ${CRYSTAL_COUNT}`);
+    toast(`Cristal du DHD ${quest.collected} / ${CRYSTAL_COUNT}`);
   }
   saveGame('collect');
 }
@@ -2142,8 +2223,10 @@ function tick() {
     pState.bob += dt * speed * 1.6;
   }
 
-  // hauteur du terrain (ne pas descendre dans l'eau)
-  const groundY = Math.max(terrainH(player.position.x, player.position.z), 0.05);
+  // hauteur du terrain (ne pas descendre dans l'eau) + dais de la Porte
+  let groundY = Math.max(terrainH(player.position.x, player.position.z), 0.05);
+  const dGate = Math.hypot(player.position.x, player.position.z + 38);
+  if (dGate < 6.5) groundY = Math.max(groundY, templeBaseY + 0.95);
   player.position.y += (groundY - player.position.y) * Math.min(1, dt * 14);
 
   // animation des membres (+ coup d'épée)
@@ -2259,18 +2342,32 @@ function tick() {
   waterU.uTime.value = t;
   for (const s of windShaders) s.uniforms.uTime.value = t;
 
-  // ouverture de la porte
+  // séquence de composition de la Porte
   if (quest.stage === 'opening') {
-    doorOpenAnim += dt;
-    templeDoor.position.y = Math.max(3.8 - doorOpenAnim * 1.4, -1.6);
-    if (templeDoor.position.y <= -1.55 && templeDoor.visible) {
-      templeDoor.visible = false; // une seule fois
+    dialT += dt;
+    symbolBand.rotation.z = Math.sin(dialT * 0.85) * 2.6;
+    const lit = Math.min(7, Math.floor(dialT / 0.8));
+    if (lit > dialChevrons) { dialChevrons = lit; sfx.chevron(); }
+    if (dialT > 6.0 && !kawooshDone) {
+      kawooshDone = true;
+      horizonTarget = 1;
+      templeLightTarget = 3.0;
+      sfx.gate();
+      spawnBurst(new THREE.Vector3(0, templeBaseY + 5.2, -36.5), 0x9fd8ff, 40, 8);
+      spawnBurst(new THREE.Vector3(0, templeBaseY + 5.2, -35), 0xd8f0ff, 30, 10);
+    }
+    if (dialT > 8.0 && !voiceShown) {
+      voiceShown = true;
       openDialogue('templeVoice');
     }
   }
-  // trésor qui tourne
-  treasureRef.rotation.y = t * 0.8;
-  treasureRef.position.y = 2.6 + Math.sin(t * 1.5) * 0.15;
+  // chevrons + horizon des événements
+  for (let i = 0; i < chevrons.length; i++) {
+    chevrons[i].material.emissiveIntensity +=
+      ((i < dialChevrons ? 1.9 : 0) - chevrons[i].material.emissiveIntensity) * Math.min(1, dt * 8);
+  }
+  horizonU.uOpen.value += (horizonTarget - horizonU.uOpen.value) * Math.min(1, dt * 2.2);
+  horizonU.uTime.value = t;
 
   // spectres
   updateEnemies(dt, t);
@@ -2326,15 +2423,14 @@ function applySave(s) {
   if (s.stage === 'collect') {
     quest.stage = 'collect';
     setBanner(quest.collected >= CRYSTAL_COUNT
-      ? '✅ Tous les cristaux ! Retourne voir le <b>Sage</b>'
-      : "🔍 Retrouve les <b>5 cristaux</b> dispersés sur l'île");
+      ? '✅ Tous les cristaux ! Retourne voir le <b>Dr Vance</b>'
+      : "🔍 Retrouve les <b>5 cristaux du DHD</b> dispersés sur l'île");
   } else if (s.stage === 'temple') {
     quest.stage = 'temple';
-    setBanner("🗝️ Ouvre la <b>porte du temple</b>, au nord de l'île");
+    setBanner("🖐 Va au <b>DHD</b>, au nord, et compose l'adresse de la Terre");
   } else if (inAct2) {
-    // porte déjà ouverte
-    templeDoor.visible = false;
-    templeLightTarget = 2.4;
+    // la Porte s'est refermée après l'incursion
+    templeLightTarget = 0.5;
     night01 = 1; nightTarget = 1;
     applyMood();
     sword.visible = true;
@@ -2344,7 +2440,7 @@ function applySave(s) {
     for (const i of (s.lit || [])) {
       braziers[i].lit = true;
       braziers[i].flame.visible = true;
-      braziers[i].ember.visible = true;
+      braziers[i].ember.material.emissiveIntensity = 2.2;
     }
     spawnEnemies();
     if (s.stage === 'boss') {
@@ -2361,7 +2457,7 @@ function applySave(s) {
 // ------------------------------------------------------------
 //  UI : démarrage, rejouer, redimensionnement
 // ------------------------------------------------------------
-setBanner("🌴 Bienvenue ! Va parler au <b>Sage</b> au chapeau violet");
+setBanner("🪐 Bienvenue sur P4X-731 ! Va parler au <b>Dr Vance</b>");
 
 const pendingSave = loadSave();
 const continueBtn = document.getElementById('continueBtn');
@@ -2403,4 +2499,6 @@ window.addEventListener('orientationchange', () => {
 window.__game = {
   player, quest, crystals, sage, doorSpot, braziers, enemies,
   doAttack, getHearts: () => hearts, getNight: () => night01,
+  setCam: (yaw, pitch) => { camYaw = yaw; camPitch = pitch; },
+  debugGate: (open) => { dialChevrons = open ? 9 : 0; horizonTarget = open ? 1 : 0; templeLightTarget = open ? 3 : 0.5; },
 };

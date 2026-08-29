@@ -6,8 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0b1d33">
-<title>L'Île Oubliée — Aventure</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏝️</text></svg>">
+<title>La Porte Oubliée — Aventure Stargate</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌀</text></svg>">
 <style>
   :root{
     --safe-top: env(safe-area-inset-top, 0px);
@@ -56,9 +56,9 @@
   }
   #counter .gem{
     width:14px; height:14px; display:inline-block;
-    background:linear-gradient(135deg,#8ef7ff,#3f7bff);
+    background:linear-gradient(135deg,#ffd08e,#ff7b3d);
     clip-path:polygon(50% 0,100% 38%,80% 100%,20% 100%,0 38%);
-    filter:drop-shadow(0 0 5px rgba(110,200,255,.9));
+    filter:drop-shadow(0 0 5px rgba(255,160,80,.9));
   }
 
   #hearts{
@@ -181,16 +181,16 @@
   </div>
 
   <div id="intro" class="overlay">
-    <h1>L'Île Oubliée</h1>
-    <p>Échoué·e sur une île mystérieuse, pars à la rencontre du Sage, retrouve les <b>5 cristaux perdus</b> et perce le secret du temple ancien.</p>
-    <button id="continueBtn" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#8be29b,#3dae62); color:#0b3a1c; box-shadow:0 8px 30px rgba(70,190,110,.4);">▶ Continuer l'aventure</button>
-    <button id="startBtn">⛵ Nouvelle aventure</button>
+    <h1>La Porte Oubliée</h1>
+    <p>Ton vaisseau s'est écrasé sur P4X-731. La <b>Porte des Étoiles</b> est intacte… mais le DHD est hors service. Retrouve les <b>5 cristaux de contrôle</b>, compose l'adresse de la Terre — et prépare-toi à ce qui traversera la Porte. <i>(fan game non officiel)</i></p>
+    <button id="continueBtn" style="display:none; margin-bottom:14px; background:linear-gradient(135deg,#8be29b,#3dae62); color:#0b3a1c; box-shadow:0 8px 30px rgba(70,190,110,.4);">▶ Reprendre la mission</button>
+    <button id="startBtn">🌀 Nouvelle mission</button>
     <div class="small">📱 Joystick à gauche pour marcher · glisse à droite pour la caméra<br>💻 ZQSD / WASD / flèches + E pour agir · F ou ⚔️ pour attaquer<br>💾 Ta progression est sauvegardée automatiquement</div>
   </div>
 
   <div id="victory" class="overlay">
     <h1>✨ Victoire !</h1>
-    <p id="victoryText">Tu as percé le secret de l'Île Oubliée.</p>
+    <p id="victoryText">Chevron 7 enclenché. Bon retour sur Terre !</p>
     <button id="replayBtn">↻ Rejouer</button>
   </div>
 

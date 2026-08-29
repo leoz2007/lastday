@@ -1,27 +1,29 @@
-# 🏝️ L'Île Oubliée
+# 🌀 La Porte Oubliée
 
-Un jeu d'aventure 3D **mobile-first** en [three.js](https://threejs.org/), sans build, sans dépendance externe : ouvre `index.html` et joue.
+Un jeu d'aventure 3D **mobile-first** dans l'univers de Stargate, en [three.js](https://threejs.org/), sans build, sans dépendance externe : ouvre `index.html` et joue.
 
-| Acte 1 — le jour | Acte 2 — les Brumes |
+> *Fan game non officiel et non commercial. Stargate SG-1 / Atlantis / Universe sont des marques de MGM/Amazon — tous les visuels de ce jeu sont générés procéduralement, aucun asset des séries n'est utilisé.*
+
+| La Porte des Étoiles | La nuit de l'Entité |
 |---|---|
 | ![Acte 1](docs/screenshot.png) | ![Acte 2](docs/screenshot-night.png) |
 
 ## 🎮 L'histoire
 
-**Acte 1.** Échoué·e sur une île mystérieuse, tu pars à la rencontre du **Sage** au chapeau violet. Il te confie une quête : retrouver les **5 cristaux de lumière** dispersés par la tempête, puis ouvrir la porte du **temple ancien** au nord de l'île.
+**Acte 1.** Ton vaisseau s'est écrasé sur **P4X-731**. Le **Dr Vance**, archéologue du SGC, est coincé : la tempête de naquadah a grillé le **DHD** et éjecté ses **5 cristaux de contrôle** (lueur orange, piliers de lumière). Retrouve-les, répare le DHD, puis pose la main sur le dôme : la **séquence de composition** s'enclenche — chevrons un à un, kawoosh, horizon des événements.
 
-**Acte 2 — Les Brumes de l'Île.** En brisant le sceau du temple, tu saisis l'**Épée de Lumière**… et tu libères les Brumes. La nuit tombe, des **spectres** rôdent. Rallume les **4 braseros sacrés**, survis à leurs assauts (5 ❤️, tu réapparais au campement si tu tombes), puis terrasse le **Gardien des Brumes** pour ramener l'aube.
+**Acte 2 — L'Entité.** Un vortex entrant instable laisse passer une **entité d'énergie** avant fermeture. Une nuit artificielle tombe sur la planète. Prends la **lame ancienne**, réactive les **4 obélisques de défense lantiens** (5 ❤️, tu réapparais au campement si tu tombes), puis détruis l'**Entité Alpha** pour rouvrir la Porte et rentrer sur Terre.
 
 ## 📱 Contrôles
 
 | Plateforme | Déplacement | Caméra | Action | Attaque |
 |---|---|---|---|---|
-| **Mobile** | joystick virtuel (pouce gauche) | glisser sur la moitié droite | bouton contextuel 💬 / 🗝️ / 🔥 | bouton ⚔️ |
+| **Mobile** | joystick virtuel (pouce gauche) | glisser sur la moitié droite | bouton contextuel 💬 / 🖐 / ⚡ | bouton ⚔️ |
 | **Desktop** | ZQSD / WASD / flèches | clic-glisser | `E`, `Espace` ou `Entrée` | `F` |
 
 ## 💾 Sauvegarde
 
-La progression est **sauvegardée automatiquement** (localStorage) à chaque étape : cristaux collectés, clé obtenue, braseros allumés, boss. Au retour, un bouton **« ▶ Continuer l'aventure »** reprend la partie là où tu l'as laissée.
+La progression est **sauvegardée automatiquement** (localStorage) à chaque étape : cristaux du DHD, DHD réparé, obélisques réactivés, boss. Au retour, un bouton **« ▶ Reprendre la mission »** reprend la partie là où tu l'as laissée.
 
 ## 🚀 Lancer le jeu
 
@@ -44,7 +46,8 @@ Ou active simplement **GitHub Pages** sur ce dépôt (Settings → Pages → bra
 - **Pipeline HDR** : rendu half-float multisamplé, bloom (UnrealBloom), tone mapping ACES ; lumières dynamiques (épée, braseros, temple) ; crépuscule embrasé pendant la transition jour/nuit.
 - **Perf mobile** : `InstancedMesh` massif, pixel ratio plafonné à 2, une seule lumière à ombres (2048²) qui suit le joueur, brouillard pour limiter la draw distance.
 - **Gameplay** : machine à états de quête (8 étapes sur 2 actes), dialogues, collisions par cercles, caméra 3ᵉ personne avec orbite tactile, particules de collecte/combat/victoire.
-- **Acte 2** : cycle jour → nuit interpolé (ciel, brouillard, lumières, océan, lune), spectres avec IA de poursuite et recul, combat à l'épée avec fenêtre de frappe et invulnérabilité temporaire, boss à 6 points de vie, retour de l'aube scripté.
+- **La Porte des Étoiles** : anneau en naqahdah, bande de 39 glyphes générés en canvas, 9 chevrons qui s'enclenchent, **horizon des événements animé en shader** (la « flaque »), kawoosh en particules, DHD au dôme orange ; séquence de composition scriptée.
+- **Acte 2** : cycle jour → nuit interpolé, entités d'énergie avec IA de poursuite, combat à la lame ancienne, obélisques lantiens à énergie bleue, boss à 6 points de vie, réouverture de la Porte scriptée. Planète alien : deux lunes, planète géante à l'horizon, végétation turquoise et pourpre.
 - **Tactile soigné** : joystick dynamique (apparaît sous le pouce), multi-touch (marcher + tourner la caméra en même temps), `safe-area-inset` pour les encoches, blocage du zoom/scroll.
 
 ## 📂 Structure
