@@ -4,7 +4,7 @@ Un jeu d'aventure 3D **mobile-first** dans l'univers de Stargate, en [three.js](
 
 > *Fan game non officiel et non commercial. Stargate SG-1 / Atlantis / Universe sont des marques de MGM/Amazon — tous les visuels de ce jeu sont générés procéduralement, aucun asset des séries n'est utilisé.*
 
-| La Porte des Étoiles | La nuit de l'Entité |
+| L'horizon des événements | En route vers la Porte |
 |---|---|
 | ![Acte 1](docs/screenshot.png) | ![Acte 2](docs/screenshot-night.png) |
 
@@ -39,7 +39,8 @@ Ou active simplement **GitHub Pages** sur ce dépôt (Settings → Pages → bra
 
 ## 🛠️ Sous le capot
 
-- **Zéro asset externe** : three.js est vendorisé (`js/vendor/`), les sons sont synthétisés en WebAudio, les textures (halos) générées en canvas.
+- **Personnages 3D animés** : soldat glTF riggé (animations squelettiques Idle/Marche/Course fondues selon la vitesse, lame attachée à l'os de la main droite, coup d'épée par surcouche d'os) pour le joueur et le Dr Vance, oiseaux alien animés qui tournoient — modèles d'exemple du dépôt three.js (licence MIT), convertis au cel-shading du jeu, avec repli automatique sur les personnages procéduraux si le chargement échoue.
+- **Le reste est 100 % généré** : three.js vendorisé (`js/vendor/`), sons synthétisés en WebAudio, textures (halos, glyphes, lune, planète) générées en canvas.
 - **Île procédurale** : terrain déformé par bruit sinusoïdal, colorié par altitude (sable → herbe → roche), océan, nuages animés, lucioles.
 - **Direction artistique cel-shading** : tous les matériaux du monde passent par une rampe de lumière toon (bandes douces façon BOTW/Ghibli), avec rim light sur les personnages, vent en vertex shader sur la végétation et grain procédural sur la pierre.
 - **6 000 brins d'herbe instanciés** qui ondulent dans le vent, feuilles portées par la brise, papillons le jour, étoiles filantes la nuit.
@@ -54,8 +55,9 @@ Ou active simplement **GitHub Pages** sur ce dépôt (Settings → Pages → bra
 
 ```
 index.html            # page, HUD, styles, import map
-js/main.js            # tout le jeu (~800 lignes commentées)
-js/vendor/            # three.js r160 (module ES minifié)
+js/main.js            # tout le jeu (commenté)
+js/vendor/            # three.js r160 + post-processing + loaders glTF
+assets/models/        # Soldier.glb, Parrot.glb (exemples three.js, MIT)
 ```
 
 Amuse-toi bien ! ⛵

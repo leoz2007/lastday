@@ -13,6 +13,8 @@ import { EffectComposer } from './vendor/postprocessing/EffectComposer.js';
 import { RenderPass } from './vendor/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from './vendor/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from './vendor/postprocessing/OutputPass.js';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import * as SkeletonUtils from './vendor/utils/SkeletonUtils.js';
 
 // ------------------------------------------------------------
 //  Constantes du monde
@@ -1102,6 +1104,110 @@ scene.add(sage);
   sage.add(beard, staff, orb, orbGlow);
 }
 colliders.push({ x: sage.position.x, z: sage.position.z, r: 0.7 });
+
+// ------------------------------------------------------------
+//  Modèles 3D animés (glTF du dépôt three.js, licence MIT)
+//  Le soldat remplace les personnages procéduraux dès qu'il est
+//  chargé ; en cas d'échec, le jeu garde ses personnages low-poly.
+// ------------------------------------------------------------
+const gltfMixers = [];
+const birds = [];
+function toonify(root, tint) {
+  root.traverse(o => {
+    if (o.isMesh) {
+      const old = o.material;
+      o.material = new THREE.MeshToonMaterial({
+        map: old.map || null,
+        color: tint !== undefined ? new THREE.Color(tint) : (old.color ? old.color.clone() : new THREE.Color(0xffffff)),
+        gradientMap: toonRamp,
+      });
+      o.castShadow = true;
+      o.frustumCulled = false; // les meshes skinnés bougent avec les os
+    }
+  });
+}
+function setSoldierAnim(sold, name) {
+  if (sold.current === name || !sold.actions[name]) return;
+  sold.actions[name].reset().fadeIn(0.18).play();
+  if (sold.actions[sold.current]) sold.actions[sold.current].fadeOut(0.18);
+  sold.current = name;
+}
+const gltfLoader = new GLTFLoader();
+
+gltfLoader.load('./assets/models/Soldier.glb', (gltf) => {
+  const setup = (tint, animName, timeOffset) => {
+    const model = SkeletonUtils.clone(gltf.scene);
+    toonify(model, tint);
+    model.scale.setScalar(1.05);
+    model.rotation.y = Math.PI; // le soldat du glb regarde -Z, notre avant est +Z
+    const mixer = new THREE.AnimationMixer(model);
+    const actions = {};
+    for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
+    if (actions[animName]) { actions[animName].play(); mixer.update(timeOffset); }
+    gltfMixers.push(mixer);
+    return { model, mixer, actions };
+  };
+
+  // --- le joueur ---
+  const p = setup(undefined, 'Idle', 0);
+  sword.parent.remove(sword); // récupérer la lame avant de purger le corps procédural
+  for (const c of [...player.children]) player.remove(c);
+  player.add(p.model, swordLight);
+  let handBone = null, armBone = null;
+  p.model.traverse(o => {
+    if (o.isBone && /RightHand$/.test(o.name)) handBone = o;
+    if (o.isBone && /RightArm$/.test(o.name)) armBone = o;
+  });
+  if (handBone) {
+    p.model.updateMatrixWorld(true);
+    handBone.add(sword);
+    const ws = new THREE.Vector3();
+    handBone.getWorldScale(ws);
+    sword.scale.setScalar(1 / (ws.x || 1));
+    sword.position.set(0, 0.08, 0.03);
+    sword.rotation.set(-Math.PI / 2, 0, 0);
+  } else {
+    player.add(sword);
+    sword.position.set(0.45, 1.6, 0);
+  }
+  player.userData.soldier = { ...p, armBone, current: 'Idle' };
+
+  // --- Dr Vance (uniforme teinté olive, pose d'attente) ---
+  const v = setup(0x92a4c0, 'Idle', 0.6);
+  for (const c of [...sage.children]) sage.remove(c);
+  sage.add(v.model);
+  // son détecteur d'énergie flotte à côté de lui
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10),
+    TOON({ color: 0x9feaff, emissive: 0x2fa8c8, emissiveIntensity: 1.4 }));
+  orb.position.set(0.6, 1.7, 0.25);
+  const orbGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex, color: 0x7de8ff, transparent: true, opacity: 0.7,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  orbGlow.scale.setScalar(1.1);
+  orbGlow.position.copy(orb.position);
+  sage.add(orb, orbGlow);
+}, undefined, (err) => console.warn('Soldier.glb indisponible, personnages procéduraux conservés', err));
+
+// Oiseaux alien qui tournoient au-dessus de l'île
+gltfLoader.load('./assets/models/Parrot.glb', (gltf) => {
+  const tints = [0x8ae8dc, 0xd8a8f0, 0xf0d890];
+  for (let i = 0; i < 3; i++) {
+    const bird = SkeletonUtils.clone(gltf.scene);
+    toonify(bird, tints[i]);
+    const size = new THREE.Box3().setFromObject(bird).getSize(new THREE.Vector3());
+    bird.scale.setScalar(1.5 / Math.max(size.x, size.y, size.z));
+    const mixer = new THREE.AnimationMixer(bird);
+    if (gltf.animations.length) {
+      mixer.clipAction(gltf.animations[0]).play();
+      mixer.update(i * 0.3);
+    }
+    gltfMixers.push(mixer);
+    scene.add(bird);
+    birds.push({ bird, phase: i * 2.1, r: 24 + i * 9, speed: 0.14 + i * 0.03, h: 11 + i * 3 });
+  }
+}, undefined, () => {});
+
 
 // ------------------------------------------------------------
 //  Flammes & fumée (partagées : braseros + torches du temple)
@@ -2229,18 +2335,37 @@ function tick() {
   if (dGate < 6.5) groundY = Math.max(groundY, templeBaseY + 0.95);
   player.position.y += (groundY - player.position.y) * Math.min(1, dt * 14);
 
-  // animation des membres (+ coup d'épée)
-  const limbs = player.userData.limbs;
-  const swing = moving ? Math.sin(pState.bob * 4) * 0.55 : 0;
-  limbs.armL.rotation.x = swing;
-  limbs.legL.rotation.x = -swing;
-  limbs.legR.rotation.x = swing;
-  if (attackT > 0) {
-    attackT -= dt;
-    const k = 1 - Math.max(attackT, 0) / 0.38;
-    limbs.armR.rotation.x = -Math.sin(k * Math.PI) * 2.3;
+  // mixers des modèles glTF (avant les overrides d'os)
+  for (const m of gltfMixers) m.update(dt);
+  // oiseaux qui tournoient
+  for (const b of birds) {
+    const a = t * b.speed + b.phase;
+    b.bird.position.set(Math.cos(a) * b.r, b.h + Math.sin(t * 0.9 + b.phase) * 1.5, Math.sin(a) * b.r);
+    b.bird.rotation.y = -a;
+  }
+
+  // animation du personnage (soldat glTF s'il est chargé, sinon membres procéduraux)
+  const soldier = player.userData.soldier;
+  if (soldier) {
+    setSoldierAnim(soldier, moving ? (mag > 0.75 ? 'Run' : 'Walk') : 'Idle');
+    if (attackT > 0) {
+      attackT -= dt;
+      const k = 1 - Math.max(attackT, 0) / 0.38;
+      if (soldier.armBone) soldier.armBone.rotation.x -= Math.sin(k * Math.PI) * 1.6;
+    }
   } else {
-    limbs.armR.rotation.x = -swing;
+    const limbs = player.userData.limbs;
+    const swing = moving ? Math.sin(pState.bob * 4) * 0.55 : 0;
+    limbs.armL.rotation.x = swing;
+    limbs.legL.rotation.x = -swing;
+    limbs.legR.rotation.x = swing;
+    if (attackT > 0) {
+      attackT -= dt;
+      const k = 1 - Math.max(attackT, 0) / 0.38;
+      limbs.armR.rotation.x = -Math.sin(k * Math.PI) * 2.3;
+    } else {
+      limbs.armR.rotation.x = -swing;
+    }
   }
 
   // clignotement d'invulnérabilité
