@@ -68,6 +68,59 @@ scene.add(sun);
 scene.add(sun.target);
 
 // ------------------------------------------------------------
+//  Stylisation des matériaux via injection de shader
+//  (onBeforeCompile sur Lambert : vent, rim light, grain)
+// ------------------------------------------------------------
+const windShaders = [];
+const F = n => Number(n).toFixed(3);
+function stylize(mat, opts = {}) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 };
+    if (opts.sway) windShaders.push(shader);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying vec3 vStylePos;');
+    let inject = '\n  vStylePos = position;';
+    if (opts.sway) {
+      // ondulation type vent, plus forte vers le haut de l'objet
+      inject += `
+  {
+    float grad = smoothstep(${F(opts.swayY[0])}, ${F(opts.swayY[1])}, position.y);
+    #ifdef USE_INSTANCING
+      float ph = instanceMatrix[3][0] * 0.37 + instanceMatrix[3][2] * 0.29;
+    #else
+      float ph = position.x * 0.6 + position.z * 0.5;
+    #endif
+    transformed.x += sin(uTime * 1.5 + ph) * ${F(opts.sway)} * grad;
+    transformed.z += cos(uTime * 1.15 + ph * 1.3) * ${F(opts.sway * 0.7)} * grad;
+  }`;
+    }
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>' + inject);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vStylePos;');
+    if (opts.grain) {
+      // grain procédural : casse les aplats de couleur
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+  {
+    float g1 = sin(vStylePos.x * 2.3 + sin(vStylePos.z * 1.7)) * sin(vStylePos.z * 2.1 + sin(vStylePos.x * 1.9));
+    float g2 = sin(vStylePos.x * 9.7 + vStylePos.z * 7.3) * sin(vStylePos.y * 8.1 + vStylePos.x * 6.3);
+    diffuseColor.rgb *= 0.965 + 0.05 * g1 + 0.022 * g2;
+  }`);
+    }
+    if (opts.rim) {
+      // lumière de contour : adoucit et arrondit les silhouettes
+      const c = new THREE.Color(opts.rim);
+      shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  {
+    float rimf = pow(1.0 - saturate(dot(normalize(vViewPosition), normal)), ${F(opts.rimPow || 3)});
+    totalEmissiveRadiance += vec3(${F(c.r)}, ${F(c.g)}, ${F(c.b)}) * rimf * ${F(opts.rimStrength || 0.25)};
+  }`);
+    }
+  };
+  mat.customProgramCacheKey = () => 'stylize' + JSON.stringify(opts);
+  return mat;
+}
+
+// ------------------------------------------------------------
 //  Textures générées (halos, fumée, lune, runes)
 // ------------------------------------------------------------
 function makeGlowTexture(inner = 'rgba(255,255,255,0.9)', mid = 'rgba(160,220,255,0.35)') {
@@ -256,18 +309,12 @@ function applyMood() {
 }
 
 // ------------------------------------------------------------
-//  Terrain low-poly facetté, coloré par altitude
+//  Terrain lissé, dégradés continus par altitude + grain shader
 // ------------------------------------------------------------
 {
-  const seg = 104;
-  let geo = new THREE.PlaneGeometry(ISLAND_R * 2.7, ISLAND_R * 2.7, seg, seg);
+  const seg = 116;
+  const geo = new THREE.PlaneGeometry(ISLAND_R * 2.7, ISLAND_R * 2.7, seg, seg);
   geo.rotateX(-Math.PI / 2);
-  const pos0 = geo.attributes.position;
-  for (let i = 0; i < pos0.count; i++) {
-    pos0.setY(i, terrainH(pos0.getX(i), pos0.getZ(i)));
-  }
-  // géométrie non indexée -> facettes plates, une couleur par triangle
-  geo = geo.toNonIndexed();
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   const crng = mulberry32(777);
@@ -280,30 +327,32 @@ function applyMood() {
   const cRock = new THREE.Color(0x939099);
   const cSnow = new THREE.Color(0xdadde5);
   const tmp = new THREE.Color();
-  for (let f = 0; f < pos.count; f += 3) {
-    const hAvg = (pos.getY(f) + pos.getY(f + 1) + pos.getY(f + 2)) / 3;
-    const xAvg = (pos.getX(f) + pos.getX(f + 1) + pos.getX(f + 2)) / 3;
-    const zAvg = (pos.getZ(f) + pos.getZ(f + 1) + pos.getZ(f + 2)) / 3;
-    const n = Math.sin(xAvg * 0.6) * Math.cos(zAvg * 0.55) * 0.18;
-    if (hAvg < 0.02) tmp.copy(cWet);
-    else if (hAvg < 0.42 + n) tmp.copy(cWet).lerp(cSand, Math.min(1, hAvg / 0.35));
-    else if (hAvg < 1.6 + n) tmp.copy(cGrassA).lerp(cGrassB, (hAvg - 0.42) / 1.2);
-    else if (hAvg < 2.9 + n) tmp.copy(cGrassB).lerp(cGrassC, (hAvg - 1.6) / 1.3);
-    else if (hAvg < 3.8 + n) tmp.copy(cGrassC).lerp(cDirt, (hAvg - 2.9) / 0.9);
-    else if (hAvg < 4.6 + n) tmp.copy(cDirt).lerp(cRock, (hAvg - 3.8) / 0.8);
-    else tmp.copy(cRock).lerp(cSnow, Math.min(1, (hAvg - 4.6) / 1.2));
-    // variation par facette (aspect low-poly stylisé)
-    const j = (crng() - 0.5) * 0.07;
-    tmp.offsetHSL(j * 0.15, j * 0.4, j);
-    for (let k = 0; k < 3; k++) {
-      colors[(f + k) * 3] = tmp.r;
-      colors[(f + k) * 3 + 1] = tmp.g;
-      colors[(f + k) * 3 + 2] = tmp.b;
-    }
+  const ss = (a, b, x) => {
+    const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return k * k * (3 - 2 * k);
+  };
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const h = terrainH(x, z);
+    pos.setY(i, h);
+    // bruit doux pour des frontières organiques entre biomes
+    const n = Math.sin(x * 0.5) * Math.cos(z * 0.45) * 0.22 + Math.sin(x * 0.13 + z * 0.17) * 0.28;
+    const hh = h + n;
+    tmp.copy(cWet)
+      .lerp(cSand, ss(-0.15, 0.35, hh))
+      .lerp(cGrassA, ss(0.3, 0.95, hh))
+      .lerp(cGrassB, ss(0.95, 2.2, hh))
+      .lerp(cGrassC, ss(2.2, 3.1, hh))
+      .lerp(cDirt, ss(3.0, 3.9, hh))
+      .lerp(cRock, ss(3.8, 4.6, hh))
+      .lerp(cSnow, ss(4.6, 5.6, hh));
+    tmp.offsetHSL((crng() - 0.5) * 0.008, 0, (crng() - 0.5) * 0.02);
+    colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const terrain = new THREE.Mesh(geo,
+    stylize(new THREE.MeshLambertMaterial({ vertexColors: true }), { grain: true }));
   terrain.receiveShadow = true;
   scene.add(terrain);
 }
@@ -405,13 +454,14 @@ function nearReserved(x, z) {
   return reserved.some(s => (x - s.x) ** 2 + (z - s.z) ** 2 < s.r * s.r);
 }
 
-// Pins (3 étages de feuillage, teintes variées)
+// Pins (3 étages de feuillage arrondis, teintes variées, vent)
 {
   const N = 60;
-  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.2, 7);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x74513a, flatShading: true });
-  const leafGeo = new THREE.ConeGeometry(1.5, 2.4, 7);
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.2, 10);
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x74513a });
+  const leafGeo = new THREE.ConeGeometry(1.5, 2.4, 14);
+  const leafMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    { sway: 0.07, swayY: [-1.2, 1.2] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N * 3);
   trunks.castShadow = leaves.castShadow = true;
@@ -443,13 +493,14 @@ function nearReserved(x, z) {
   scene.add(trunks, leaves);
 }
 
-// Feuillus (boules de feuillage sur tronc)
+// Feuillus (boules de feuillage rondes sur tronc, vent)
 {
   const N = 26;
-  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.7, 6);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x84604a, flatShading: true });
-  const blobGeo = new THREE.IcosahedronGeometry(1.0, 0);
-  const blobMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.7, 10);
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x84604a });
+  const blobGeo = new THREE.IcosahedronGeometry(1.0, 2);
+  const blobMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    { sway: 0.09, swayY: [-1, 1] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const blobs = new THREE.InstancedMesh(blobGeo, blobMat, N * 3);
   trunks.castShadow = blobs.castShadow = true;
@@ -484,12 +535,13 @@ function nearReserved(x, z) {
 
 // Palmiers de plage
 {
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x9a7248, flatShading: true });
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0x4faf52, flatShading: true });
+  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x9a7248 });
+  const leafMat = stylize(new THREE.MeshLambertMaterial({ color: 0x4faf52 }),
+    { sway: 0.07, swayY: [-0.6, 0.6] });
   const cocoMat = new THREE.MeshLambertMaterial({ color: 0x6e4a2e });
-  const segGeo = new THREE.CylinderGeometry(0.13, 0.18, 1.1, 6);
-  const leafGeo = new THREE.SphereGeometry(1, 5, 4);
-  const cocoGeo = new THREE.SphereGeometry(0.14, 6, 5);
+  const segGeo = new THREE.CylinderGeometry(0.13, 0.18, 1.1, 9);
+  const leafGeo = new THREE.SphereGeometry(1, 9, 7);
+  const cocoGeo = new THREE.SphereGeometry(0.14, 8, 6);
   for (let i = 0; i < 9; i++) {
     const s = randSpot(46, 56, 0.12, 0.75);
     if (!s) continue;
@@ -528,11 +580,11 @@ function nearReserved(x, z) {
   }
 }
 
-// Rochers (teintes variées)
+// Rochers arrondis (teintes variées, grain)
 {
   const N = 26;
-  const geo = new THREE.IcosahedronGeometry(0.9, 0);
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+  const geo = new THREE.IcosahedronGeometry(0.9, 1);
+  const mat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }), { grain: true });
   const rocks = new THREE.InstancedMesh(geo, mat, N);
   rocks.castShadow = true;
   const c = new THREE.Color();
@@ -555,11 +607,12 @@ function nearReserved(x, z) {
   scene.add(rocks);
 }
 
-// Touffes d'herbe
+// Touffes d'herbe (ondulent dans le vent)
 {
   const N = 320;
-  const geo = new THREE.ConeGeometry(0.05, 0.42, 4);
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const geo = new THREE.ConeGeometry(0.05, 0.42, 6);
+  const mat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    { sway: 0.16, swayY: [-0.21, 0.21] });
   const grass = new THREE.InstancedMesh(geo, mat, N);
   const c = new THREE.Color();
   let gi = 0;
@@ -582,10 +635,12 @@ function nearReserved(x, z) {
 // Fleurs (tige + corolle)
 {
   const N = 80;
-  const stemGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.34, 4);
-  const stemMat = new THREE.MeshLambertMaterial({ color: 0x3f8a3c });
-  const headGeo = new THREE.SphereGeometry(0.1, 6, 5);
-  const headMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  const stemGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.34, 6);
+  const stemMat = stylize(new THREE.MeshLambertMaterial({ color: 0x3f8a3c }),
+    { sway: 0.07, swayY: [-0.17, 0.17] });
+  const headGeo = new THREE.SphereGeometry(0.1, 10, 8);
+  const headMat = stylize(new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    { sway: 0.07, swayY: [-0.1, 0.1] });
   const stems = new THREE.InstancedMesh(stemGeo, stemMat, N);
   const heads = new THREE.InstancedMesh(headGeo, headMat, N);
   const palette = [0xff6b8d, 0xffd166, 0xa78bfa, 0xfff6f0, 0xff9e5e, 0x7ae0ff];
@@ -651,18 +706,18 @@ let dust;
   scene.add(dust);
 }
 
-// Nuages low-poly
+// Nuages moelleux
 const clouds = [];
 {
   const mat = new THREE.MeshLambertMaterial({
-    color: 0xffffff, flatShading: true, transparent: true, opacity: 0.92,
+    color: 0xffffff, transparent: true, opacity: 0.92,
     emissive: 0x9aa8c0, emissiveIntensity: 0.25,
   });
   for (let i = 0; i < 9; i++) {
     const g = new THREE.Group();
     const n = 3 + ((rng() * 3) | 0);
     for (let k = 0; k < n; k++) {
-      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(2 + rng() * 2.6, 0), mat);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(2 + rng() * 2.6, 12, 9), mat);
       puff.position.set((rng() - 0.5) * 8, (rng() - 0.5) * 1.4, (rng() - 0.5) * 4.5);
       puff.scale.y = 0.5;
       puff.rotation.y = rng() * 3;
@@ -681,18 +736,20 @@ const clouds = [];
 function makeCharacter({ shirt, pants, skin, hat, hair, backpack }) {
   const g = new THREE.Group();
   const M = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
-  const skinMat = M(skin);
-  const shirtMat = M(shirt);
-  const pantsMat = M(pants);
+  // rim light chaude : silhouettes douces et arrondies
+  const rimOpts = { rim: 0xffe4c0, rimStrength: 0.22, rimPow: 3 };
+  const skinMat = stylize(M(skin), rimOpts);
+  const shirtMat = stylize(M(shirt), rimOpts);
+  const pantsMat = stylize(M(pants), { rim: 0xffe4c0, rimStrength: 0.15, rimPow: 3 });
 
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.5, 4, 10), shirtMat);
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.5, 6, 16), shirtMat);
   body.position.y = 1.05;
-  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.375, 0.375, 0.12, 10), M(0x4a3628));
+  const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.375, 0.375, 0.12, 16), M(0x4a3628));
   belt.position.y = 0.78;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), skinMat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 18), skinMat);
   head.position.y = 1.78;
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), skinMat);
-  nose.position.set(0, 1.76, 0.34); nose.rotation.x = Math.PI / 2;
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), skinMat);
+  nose.position.set(0, 1.75, 0.33); nose.scale.z = 1.3;
 
   // yeux : blanc + pupille
   const eyeWhiteG = new THREE.SphereGeometry(0.06, 8, 8);
@@ -708,43 +765,43 @@ function makeCharacter({ shirt, pants, skin, hat, hair, backpack }) {
   // cheveux
   if (hair) {
     const hairMat = M(hair);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
     cap.position.set(0, 1.8, -0.03);
-    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), hairMat);
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), hairMat);
     tuft.position.set(0.1, 2.1, 0.08);
     g.add(cap, tuft);
   }
 
-  const armGeo = new THREE.CapsuleGeometry(0.09, 0.5, 3, 6);
-  const handGeo = new THREE.SphereGeometry(0.1, 8, 6);
+  const armGeo = new THREE.CapsuleGeometry(0.09, 0.5, 6, 12);
+  const handGeo = new THREE.SphereGeometry(0.1, 10, 8);
   const armL = new THREE.Mesh(armGeo, shirtMat); armL.position.set(0.5, 1.18, 0);
   const armR = new THREE.Mesh(armGeo, shirtMat); armR.position.set(-0.5, 1.18, 0);
   const handL = new THREE.Mesh(handGeo, skinMat); handL.position.set(0, -0.38, 0); armL.add(handL);
   const handR = new THREE.Mesh(handGeo, skinMat); handR.position.set(0, -0.38, 0); armR.add(handR);
 
-  const legGeo = new THREE.CapsuleGeometry(0.11, 0.42, 3, 6);
-  const footGeo = new THREE.BoxGeometry(0.17, 0.1, 0.3);
+  const legGeo = new THREE.CapsuleGeometry(0.11, 0.42, 6, 12);
+  const footGeo = new THREE.SphereGeometry(0.12, 10, 8);
   const footMat = M(0x3a2c20);
   const legL = new THREE.Mesh(legGeo, pantsMat); legL.position.set(0.17, 0.38, 0);
   const legR = new THREE.Mesh(legGeo, pantsMat); legR.position.set(-0.17, 0.38, 0);
-  const footL = new THREE.Mesh(footGeo, footMat); footL.position.set(0, -0.33, 0.06); legL.add(footL);
-  const footR = new THREE.Mesh(footGeo, footMat); footR.position.set(0, -0.33, 0.06); legR.add(footR);
+  const footL = new THREE.Mesh(footGeo, footMat); footL.position.set(0, -0.33, 0.06); footL.scale.set(0.85, 0.55, 1.35); legL.add(footL);
+  const footR = new THREE.Mesh(footGeo, footMat); footR.position.set(0, -0.33, 0.06); footR.scale.set(0.85, 0.55, 1.35); legR.add(footR);
 
   g.add(body, belt, head, nose, armL, armR, legL, legR);
 
   if (backpack) {
-    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.2), M(0x8a6540));
-    pack.position.set(0, 1.18, -0.37);
-    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.4, 8), M(0xc8b088));
-    roll.position.set(0, 1.46, -0.37); roll.rotation.z = Math.PI / 2;
+    const pack = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.24, 6, 12), M(0x8a6540));
+    pack.position.set(0, 1.18, -0.37); pack.scale.set(1.15, 1, 0.7);
+    const roll = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.26, 6, 10), M(0xc8b088));
+    roll.position.set(0, 1.48, -0.37); roll.rotation.z = Math.PI / 2;
     g.add(pack, roll);
   }
   if (hat) {
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.52, 0.07, 12), M(hat));
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.52, 0.07, 18), M(hat));
     brim.position.y = 1.99;
-    const top = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 10), M(hat));
+    const top = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.6, 16), M(hat));
     top.position.y = 2.28;
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.31, 0.1, 10), M(0xd8c27a));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.31, 0.1, 16), M(0xd8c27a));
     band.position.y = 2.05;
     g.add(brim, top, band);
   }
@@ -800,8 +857,8 @@ scene.add(sage);
 // robe, barbe, bâton
 {
   const robe = new THREE.Mesh(
-    new THREE.ConeGeometry(0.62, 1.15, 10),
-    new THREE.MeshLambertMaterial({ color: 0x62519f })
+    new THREE.ConeGeometry(0.62, 1.15, 18),
+    stylize(new THREE.MeshLambertMaterial({ color: 0x62519f }), { rim: 0xc8b8ff, rimStrength: 0.2, rimPow: 3 })
   );
   robe.position.y = 0.58;
   const rope = new THREE.Mesh(
@@ -899,8 +956,8 @@ function updateSmoke(dt) {
 const temple = new THREE.Group();
 let templeDoor, treasureRef;
 {
-  const stone = new THREE.MeshLambertMaterial({ color: 0xc4bba8, flatShading: true });
-  const stoneDark = new THREE.MeshLambertMaterial({ color: 0x968e7a, flatShading: true });
+  const stone = stylize(new THREE.MeshLambertMaterial({ color: 0xc4bba8 }), { grain: true });
+  const stoneDark = stylize(new THREE.MeshLambertMaterial({ color: 0x968e7a }), { grain: true });
   const gold = new THREE.MeshLambertMaterial({ color: 0xd8b258, emissive: 0x3a2a08, emissiveIntensity: 0.4 });
 
   const base = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 10), stoneDark);
@@ -916,7 +973,7 @@ let templeDoor, treasureRef;
   }
   // colonnes avec base et chapiteau
   for (const sx of [-5.2, -1.8, 1.8, 5.2]) {
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 5.6, 9), stone);
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 5.6, 16), stone);
     col.position.set(sx, 4.2, 4.2);
     const cbase = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 1.5), stoneDark);
     cbase.position.set(sx, 1.6, 4.2);
@@ -948,10 +1005,10 @@ let templeDoor, treasureRef;
   pediment.position.set(0, 9.6, 2.2);
   temple.add(pediment);
   // mousse sur la plateforme
-  const mossMat = new THREE.MeshLambertMaterial({ color: 0x5a8a44, flatShading: true });
+  const mossMat = new THREE.MeshLambertMaterial({ color: 0x5a8a44 });
   const mrng = mulberry32(55);
   for (let k = 0; k < 8; k++) {
-    const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + mrng() * 0.3, 0), mossMat);
+    const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + mrng() * 0.3, 1), mossMat);
     moss.position.set((mrng() - 0.5) * 13, 1.25, 3.2 + mrng() * 2.6);
     moss.scale.y = 0.25;
     temple.add(moss);
@@ -979,7 +1036,7 @@ let templeDoor, treasureRef;
 
   // trésor (révélé quand la porte s'ouvre)
   treasureRef = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.9, 1),
+    new THREE.IcosahedronGeometry(0.9, 2),
     new THREE.MeshLambertMaterial({ color: 0xffe27a, emissive: 0xcf9d2a, emissiveIntensity: 0.9 })
   );
   treasureRef.position.set(0, 2.6, 0);
@@ -1077,17 +1134,17 @@ const crystals = [];
 // ------------------------------------------------------------
 const braziers = [];
 {
-  const bowlMat = new THREE.MeshLambertMaterial({ color: 0x5c5c68, flatShading: true });
+  const bowlMat = stylize(new THREE.MeshLambertMaterial({ color: 0x5c5c68 }), { grain: true });
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c3f26 });
   const emberMat = new THREE.MeshLambertMaterial({ color: 0xff8830, emissive: 0xdd4400, emissiveIntensity: 1.2 });
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x8f8f99, flatShading: true });
+  const stoneMat = stylize(new THREE.MeshLambertMaterial({ color: 0x8f8f99 }), { grain: true });
   for (let i = 0; i < BRAZIER_SPOTS.length; i++) {
     const [x, z] = BRAZIER_SPOTS[i];
     const h = Math.max(terrainH(x, z), 0.3);
     const g = new THREE.Group();
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.34, 1.0, 8), bowlMat);
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.34, 1.0, 12), bowlMat);
     foot.position.y = 0.5;
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.32, 0.45, 10), bowlMat);
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.32, 0.45, 14), bowlMat);
     bowl.position.y = 1.15;
     const wood = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), woodMat);
     wood.position.y = 1.35; wood.scale.y = 0.5;
@@ -1097,7 +1154,7 @@ const braziers = [];
     // cercle de pierres au sol
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2;
-      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + (i + k) % 3 * 0.05, 0), stoneMat);
+      const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + (i + k) % 3 * 0.05, 1), stoneMat);
       st.position.set(Math.cos(a) * 1.3, 0.08, Math.sin(a) * 1.3);
       g.add(st);
     }
@@ -1122,15 +1179,15 @@ function litCount() { return braziers.filter(b => b.lit).length; }
 const enemies = [];
 function makeSpectre(boss = false) {
   const g = new THREE.Group();
-  const bodyMat = new THREE.MeshLambertMaterial({
+  const bodyMat = stylize(new THREE.MeshLambertMaterial({
     color: boss ? 0xd8b8c8 : 0xc4bcf2,
     emissive: boss ? 0x8a2a3a : 0x4a3f9a,
     emissiveIntensity: 0.7,
     transparent: true, opacity: 0.82,
-  });
-  const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.6, 8), bodyMat);
+  }), { rim: boss ? 0xff7060 : 0x9fd8ff, rimStrength: 0.9, rimPow: 2.5 });
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.6, 16), bodyMat);
   body.position.y = 0.8; body.rotation.x = Math.PI; // pointe vers le bas
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), bodyMat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 14), bodyMat);
   head.position.y = 1.75;
   const eyeMat = new THREE.MeshBasicMaterial({ color: boss ? 0xff4040 : 0x7ae8ff });
   const eyeGeo = new THREE.SphereGeometry(0.07, 6, 6);
@@ -1908,8 +1965,9 @@ function tick() {
   }
   updateSmoke(dt);
 
-  // océan animé
+  // océan animé + vent sur la végétation
   waterU.uTime.value = t;
+  for (const s of windShaders) s.uniforms.uTime.value = t;
 
   // ouverture de la porte
   if (quest.stage === 'opening') {
