@@ -16,7 +16,7 @@ import { OutputPass } from './vendor/postprocessing/OutputPass.js';
 import { ShaderPass } from './vendor/postprocessing/ShaderPass.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import * as SkeletonUtils from './vendor/utils/SkeletonUtils.js';
-import { mergeVertices } from './vendor/utils/BufferGeometryUtils.js';
+import { mergeVertices, mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
 
 // ------------------------------------------------------------
 //  Constantes du monde
@@ -68,8 +68,9 @@ const composer = new EffectComposer(renderer, composerRT);
 composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 composer.setSize(window.innerWidth, window.innerHeight);
 composer.addPass(new RenderPass(scene, camera));
+// bloom à résolution réduite : la lueur large coûte moitié moins
 const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.5, 0.97);
+  new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.55, 0.5, 0.97);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 // grain de film + micro-saturation (le « polish » des sketches three.js)
@@ -275,7 +276,48 @@ function makeRunesTexture() {
   ctx.stroke();
   return new THREE.CanvasTexture(c);
 }
+function makeWorleyTexture() {
+  // champ cellulaire de Worley tuilé (grille 8x8 jitterée)
+  const S = 256, G = 8, cell = S / G;
+  const wrng = mulberry32(2024);
+  const pts = [];
+  for (let gy = 0; gy < G; gy++) {
+    for (let gx = 0; gx < G; gx++) {
+      pts.push([(gx + wrng()) * cell, (gy + wrng()) * cell]);
+    }
+  }
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  for (let y = 0; y < S; y++) {
+    const gy = Math.floor(y / cell);
+    for (let x = 0; x < S; x++) {
+      const gx = Math.floor(x / cell);
+      let d1 = 1e9;
+      for (let oy = -1; oy <= 1; oy++) {
+        for (let ox = -1; ox <= 1; ox++) {
+          const p = pts[((gy + oy + G) % G) * G + ((gx + ox + G) % G)];
+          // distance avec enroulement (texture tuilée)
+          let dx = Math.abs(p[0] - x); dx = Math.min(dx, S - dx);
+          let dy = Math.abs(p[1] - y); dy = Math.min(dy, S - dy);
+          const d = dx * dx + dy * dy;
+          if (d < d1) d1 = d;
+        }
+      }
+      const v = Math.min(255, Math.sqrt(d1) / (cell * 0.9) * 255);
+      const i = (y * S + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
 const glowTex = makeGlowTexture();
+const worleyTex = makeWorleyTexture();
 const smokeTex = makeSmokeTexture();
 
 // ------------------------------------------------------------
@@ -534,91 +576,117 @@ function applyMood() {
 }
 
 // ------------------------------------------------------------
-//  Océan : houle directionnelle, écume organique qui lèche le
-//  rivage, chemin de soleil scintillant (inspiré des sketches
-//  « ocean shore » de la scène créative three.js)
+//  Océan v3 : bathymétrie analytique portée en GLSL, trains de
+//  Gerstner à déferlement limité par la profondeur, absorption
+//  Beer-Lambert, écume Worley effilochée, bioluminescence
+//  d'agitation la nuit, chemin de soleil scintillant
 // ------------------------------------------------------------
 const waterU = THREE.UniformsUtils.merge([
   THREE.UniformsLib.fog,
-  { uTime: { value: 0 }, uNight: { value: 0 }, uDusk: { value: 0 } },
+  { uTime: { value: 0 }, uNight: { value: 0 }, uDusk: { value: 0 }, uWorley: { value: null } },
 ]);
+waterU.uWorley.value = worleyTex;
+const BATHY_GLSL = `
+  // même fonction que terrainH côté JS : l'eau connaît la vraie profondeur
+  float bathy(vec2 w){
+    float d = length(w);
+    float island = max(0.0, 1.0 - (d / 62.0) * (d / 62.0));
+    float h = sin(w.x * 0.09) * cos(w.y * 0.08) * 1.5
+            + sin(w.x * 0.031 + w.y * 0.047) * 2.1
+            + cos(w.x * 0.017 - w.y * 0.023) * 1.2
+            + sin(w.x * 0.21 + 1.7) * cos(w.y * 0.19 - 0.6) * 0.35;
+    return (h + 3.1) * island - 1.4;
+  }`;
 {
-  const geo = new THREE.PlaneGeometry(520, 520, 96, 96);
+  const geo = new THREE.PlaneGeometry(520, 520, 110, 110);
   const mat = new THREE.ShaderMaterial({
     uniforms: waterU,
     transparent: true,
     fog: true,
     vertexShader: `
       uniform float uTime;
-      varying vec2 vXZ;
+      varying vec2 vW;
       varying float vH;
+      varying float vDepth;
+      varying float vAgit;
+      __BATHY__
       #include <fog_pars_vertex>
       void main(){
         vec3 p = position;
-        float d = length(p.xy);
-        // houle : 3 ondes directionnelles amorties près du rivage + clapot
-        float damp = 0.05 + smoothstep(61.0, 88.0, d) * 0.95;
-        float w1 = sin(dot(p.xy, vec2(0.055, 0.035)) + uTime * 0.85);
-        float w2 = sin(dot(p.xy, vec2(-0.042, 0.061)) + uTime * 0.62 + 2.1);
-        float w3 = sin(dot(p.xy, vec2(0.091, -0.021)) + uTime * 1.25 + 4.3);
-        float chop = sin(p.x * 0.34 + uTime * 1.8) * sin(p.y * 0.29 - uTime * 1.4);
-        float h = (w1 * 0.28 + w2 * 0.19 + w3 * 0.14) * damp + chop * 0.035;
-        p.z += h;
-        vH = h;
-        vXZ = position.xy;
+        vec2 w = vec2(p.x, -p.y); // coordonnées monde XZ
+        float depth = max(0.06, -bathy(w));
+        // amplitude limitée par la profondeur : les vagues cassent au rivage
+        float dl = clamp(depth / 2.4, 0.0, 1.0);
+        vec2 D1 = normalize(vec2(0.80, 0.60));
+        vec2 D2 = normalize(vec2(-0.55, 0.78));
+        vec2 D3 = normalize(vec2(0.95, -0.30));
+        float A1 = 0.34 * dl, A2 = 0.19 * dl, A3 = 0.10 * dl;
+        float ph1 = dot(D1, w) * 0.10 - uTime * 0.85;
+        float ph2 = dot(D2, w) * 0.17 - uTime * 1.05 + 2.0;
+        float ph3 = dot(D3, w) * 0.28 - uTime * 1.45 + 4.0;
+        // cambrure de Gerstner, accentuée dans les hauts-fonds
+        float Q = 0.55 * (1.0 + (1.0 - dl) * 1.3);
+        vec2 hd = D1 * (Q * A1 * cos(ph1)) + D2 * (Q * A2 * cos(ph2)) + D3 * (Q * A3 * cos(ph3));
+        p.x += hd.x; p.y -= hd.y; // retour local (y local = -z monde)
+        float H = A1 * sin(ph1) + A2 * sin(ph2) + A3 * sin(ph3)
+                + sin(p.x * 0.34 + uTime * 1.8) * sin(p.y * 0.29 - uTime * 1.4) * 0.035 * dl;
+        p.z += H;
+        vH = H;
+        vDepth = depth;
+        // agitation = énergie perdue au déferlement + crêtes cambrées
+        vAgit = (1.0 - dl) * (0.5 + 0.5 * sin(ph1)) + max(0.0, sin(ph2)) * (1.0 - dl) * 0.6;
+        vW = w;
         vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
-      }`,
+      }`.replace('__BATHY__', BATHY_GLSL),
     fragmentShader: `
       uniform float uTime;
       uniform float uNight;
       uniform float uDusk;
-      varying vec2 vXZ;
+      uniform sampler2D uWorley;
+      varying vec2 vW;
       varying float vH;
+      varying float vDepth;
+      varying float vAgit;
       #include <fog_pars_fragment>
       void main(){
-        float d = length(vXZ);
-        float shore = d - 59.0; // < 0 : côté plage
-        // dégradé turquoise -> lagon -> abysse
-        vec3 cShallow = mix(vec3(0.45, 0.85, 0.80), vec3(0.10, 0.24, 0.38), uNight);
-        vec3 cMid     = mix(vec3(0.14, 0.56, 0.66), vec3(0.05, 0.14, 0.26), uNight);
-        vec3 cDeep    = mix(vec3(0.03, 0.26, 0.46), vec3(0.015, 0.06, 0.16), uNight);
-        vec3 col = mix(cShallow, cMid, smoothstep(0.0, 14.0, shore));
-        col = mix(col, cDeep, smoothstep(12.0, 55.0, shore));
-        // volume : crêtes claires, creux sombres
-        col += vH * (0.11 - 0.05 * uNight);
-        // bruit organique
-        float n1 = sin(vXZ.x * 1.7 + sin(vXZ.y * 2.3 + uTime * 0.9))
-                 * sin(vXZ.y * 1.9 + sin(vXZ.x * 2.1 - uTime * 0.7));
-        float n2 = sin(vXZ.x * 5.3 - uTime * 1.1) * sin(vXZ.y * 4.7 + uTime * 0.9);
-        float noise = n1 * 0.6 + n2 * 0.4;
-        // la vague qui lèche : ligne d'écume qui avance et se retire
-        float lap = sin(uTime * 0.65 + sin(atan(vXZ.y, vXZ.x) * 5.0) * 1.3) * 2.4;
-        float edge = shore + lap;
-        float foamLine = 1.0 - smoothstep(0.0, 2.8 + noise * 1.3, abs(edge - 0.9));
-        foamLine *= smoothstep(-0.55, 0.35, noise + 0.5); // dentelle dissoute
-        // traînée d'écume résiduelle derrière la ligne
-        float trail = (1.0 - smoothstep(0.0, 6.5, abs(edge))) * smoothstep(0.1, 0.5, noise) * 0.4;
-        // écume des crêtes au large
-        float crest = smoothstep(0.26, 0.48, vH) * smoothstep(6.0, 22.0, shore)
-                    * smoothstep(-0.2, 0.5, noise) * 0.55;
-        float foam = clamp(foamLine + trail + crest, 0.0, 1.0);
-        vec3 foamCol = mix(vec3(0.97, 0.99, 1.0), vec3(0.55, 0.66, 0.82), uNight);
+        float depth = vDepth;
+        // absorption de Beer-Lambert : turquoise -> large bleu selon la profondeur
+        vec3 cShallow = mix(vec3(0.46, 0.86, 0.78), vec3(0.10, 0.24, 0.38), uNight);
+        vec3 cDeep    = mix(vec3(0.02, 0.23, 0.44), vec3(0.012, 0.055, 0.15), uNight);
+        float absorb = exp(-depth * 0.24);
+        vec3 col = mix(cDeep, cShallow, absorb);
+        col += vH * (0.10 - 0.05 * uNight);
+        // champ de Worley (deux échelles qui dérivent)
+        float wo = texture2D(uWorley, vW * 0.045 + vec2(uTime * 0.006, uTime * 0.004)).r;
+        float wo2 = texture2D(uWorley, vW * 0.012 - vec2(uTime * 0.003, 0.0)).r;
+        // ligne de swash : la vague lèche le bord de lagune, bord effiloché
+        float lap = sin(uTime * 0.7 + wo2 * 5.0) * 0.16 + 0.18;
+        float swash = 1.0 - smoothstep(0.0, 0.6, depth - lap);
+        float frayed = smoothstep(0.42, 0.8, swash + (0.5 - wo) * 1.0) * smoothstep(0.03, 0.2, swash);
+        // écume de déferlement, morcelée en cellules
+        float breakFoam = smoothstep(0.6, 0.92, vAgit * (0.5 + 0.7 * (1.0 - wo)));
+        float foam = clamp(frayed + breakFoam * 0.85, 0.0, 1.0);
+        vec3 foamCol = mix(vec3(0.97, 0.99, 1.0), vec3(0.5, 0.62, 0.78), uNight);
         col = mix(col, foamCol, foam * 0.92);
-        // chemin de soleil / de lune scintillant, orienté vers l'astre
-        vec2 sunA = normalize(vec2(32.0, -18.0));
-        float band = pow(max(0.0, dot(normalize(vXZ), sunA)), 16.0);
-        float glit = sin(vXZ.x * 6.1 + uTime * 2.2) * sin(vXZ.y * 5.7 - uTime * 1.7);
+        // bioluminescence : uniquement là où l'eau est agitée, la nuit
+        float pulse = 0.45 + 0.55 * sin(uTime * 1.7 + wo * 14.0);
+        float biolum = clamp(breakFoam + frayed * 0.55, 0.0, 1.0) * uNight * pulse
+                     * smoothstep(0.5, 0.8, wo2); // par plaques éparses
+        col += vec3(0.25, 1.05, 0.78) * biolum * 0.7;
+        // chemin de soleil / lune scintillant
+        vec2 sunA = normalize(vec2(32.0, 18.0));
+        float band = pow(max(0.0, dot(normalize(vW), sunA)), 16.0);
+        float glit = sin(vW.x * 6.1 + uTime * 2.2) * sin(vW.y * 5.7 - uTime * 1.7);
         float sparkle = smoothstep(0.72, 0.97, glit);
         col += vec3(1.25, 1.02, 0.72) * sparkle * band * (1.0 - uNight) * 1.15;
-        col += vec3(0.6, 0.78, 1.15) * sparkle * uNight * 0.45;
-        // reflet du couchant
+        col += vec3(0.6, 0.78, 1.15) * sparkle * uNight * 0.4;
         col = mix(col, vec3(0.9, 0.45, 0.2), uDusk * 0.25);
         col += vec3(1.25, 0.5, 0.18) * sparkle * band * uDusk * 1.3;
-        // transparence près du bord : le sable transparaît sous l'eau
-        float alpha = 0.96 - (1.0 - smoothstep(-4.0, 3.0, shore)) * 0.5;
-        gl_FragColor = vec4(col, clamp(alpha, 0.3, 0.97));
+        // transparence dans les hauts-fonds : le sable transparaît
+        float alpha = mix(0.32, 0.96, smoothstep(0.0, 2.3, depth));
+        gl_FragColor = vec4(col, alpha);
         #include <fog_fragment>
       }`,
   });
@@ -626,6 +694,244 @@ const waterU = THREE.UniformsUtils.merge([
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0;
   scene.add(water);
+}
+
+// ------------------------------------------------------------
+//  Banc de poissons : un seul draw call instancié, allure
+//  individuelle bornée, respiration de formation, fuite
+// ------------------------------------------------------------
+const school = { fish: [], mesh: null, center: { a: 0.8, r: 66 }, alert: 0 };
+{
+  const N = 110;
+  // poisson : corps fuselé + caudale, fusionnés en une géométrie
+  const body = new THREE.SphereGeometry(0.5, 8, 6);
+  body.applyMatrix4(new THREE.Matrix4().makeScale(1.7, 0.55, 0.28));
+  const tail = new THREE.ConeGeometry(0.28, 0.5, 4);
+  tail.applyMatrix4(new THREE.Matrix4()
+    .multiply(new THREE.Matrix4().makeTranslation(-1.0, 0, 0))
+    .multiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2)));
+  tail.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, 0.22));
+  const geo = mergeGeometries([body.toNonIndexed(), tail.toNonIndexed()]);
+  geo.applyMatrix4(new THREE.Matrix4().makeScale(0.55, 0.55, 0.55));
+  const mat = TOON({ color: 0xffffff });
+  school.mesh = new THREE.InstancedMesh(geo, mat, N);
+  const c = new THREE.Color();
+  const frng = mulberry32(777);
+  for (let i = 0; i < N; i++) {
+    school.fish.push({
+      slotA: frng() * Math.PI * 2,          // position dans la formation
+      slotR: 0.5 + frng() * 4.5,
+      slotY: -0.25 - frng() * 0.55,
+      pace: 0.85 + frng() * 0.3,            // variation d'allure bornée
+      ph: frng() * 9,
+    });
+    c.setHSL(0.52 + frng() * 0.08, 0.35, 0.55 + frng() * 0.2);
+    school.mesh.setColorAt(i, c);
+  }
+  scene.add(school.mesh);
+}
+function updateSchool(dt, t) {
+  // le centre du banc dérive le long du lagon
+  school.center.a += dt * 0.03;
+  const cx = Math.cos(school.center.a) * school.center.r;
+  const cz = Math.sin(school.center.a) * school.center.r;
+  // alerte : joueur proche ou baleine active -> compression puis fuite
+  const dP = Math.hypot(player.position.x - cx, player.position.z - cz);
+  const target = (dP < 12 || whale.state === 'breach') ? 1 : 0;
+  school.alert += (target - school.alert) * Math.min(1, dt * (target ? 3 : 0.25));
+  const spread = 1 - school.alert * 0.55;    // compression
+  const burst = 1 + school.alert * 2.2;      // accélération de fuite
+  const breathe = 1 + Math.sin(t * 0.5) * 0.18; // respiration de formation
+  for (let i = 0; i < school.fish.length; i++) {
+    const f = school.fish[i];
+    const a = f.slotA + t * 0.55 * f.pace * burst;
+    const r = f.slotR * spread * breathe + Math.sin(t * 1.3 + f.ph) * 0.3;
+    const x = cx + Math.cos(a) * r;
+    const z = cz + Math.sin(a) * r * 0.65;
+    const y = f.slotY + Math.sin(t * 2.1 + f.ph) * 0.12 - school.alert * 0.5;
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, -a + Math.PI, Math.sin(t * 6 * f.pace + f.ph) * 0.15);
+    dummy.scale.setScalar(1);
+    dummy.updateMatrix();
+    school.mesh.setMatrixAt(i, dummy.matrix);
+  }
+  school.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// ------------------------------------------------------------
+//  La baleine à bosse : surfacage avec souffle, et breach
+//  balistique — sortie, couronne, claque retardée, gouttelettes
+//  et anneaux persistants partagent les mêmes points de contact
+// ------------------------------------------------------------
+const whale = { group: null, state: 'hidden', timer: 25, t: 0, kind: 'surface', n: 0, p0: new THREE.Vector3(), dir: new THREE.Vector3(), events: {} };
+const seaRings = [];
+{
+  const g = new THREE.Group();
+  const dark = TOON({ color: 0x3c4c5e });
+  const belly = TOON({ color: 0x9aaab6 });
+  let bodyGeo = new THREE.SphereGeometry(1, 20, 14);
+  bodyGeo.applyMatrix4(new THREE.Matrix4().makeScale(3.6, 1.05, 1.15));
+  bodyGeo = sculpt(bodyGeo, 0.05, 1.6, 8.8);
+  const body = new THREE.Mesh(bodyGeo, dark);
+  const ventral = new THREE.Mesh(new THREE.SphereGeometry(0.92, 16, 10), belly);
+  ventral.scale.set(3.1, 0.8, 1.0);
+  ventral.position.y = -0.32;
+  // longues pectorales de mégaptère
+  for (const sx of [-1, 1]) {
+    const fin = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), belly);
+    fin.scale.set(1.9, 0.09, 0.5);
+    fin.position.set(0.4, -0.5, sx * 1.15);
+    fin.rotation.y = sx * 0.5;
+    fin.rotation.z = -0.15;
+    g.add(fin);
+  }
+  // caudale
+  for (const sz of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), dark);
+    fluke.scale.set(1.1, 0.08, 0.65);
+    fluke.position.set(-3.6, 0.1, sz * 0.6);
+    fluke.rotation.y = sz * 0.45;
+    g.add(fluke);
+  }
+  const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.55, 6), dark);
+  dorsal.position.set(-1.4, 1.0, 0);
+  g.add(body, ventral, dorsal);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.visible = false;
+  scene.add(g);
+  whale.group = g;
+}
+function spawnSeaRing(x, z, big) {
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(0.85, 1.12, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xdff4ff, transparent: true, opacity: 0.8,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.06, z);
+  m.scale.setScalar(big ? 2.2 : 1);
+  scene.add(m);
+  seaRings.push({ m, life: 1, speed: big ? 4.5 : 2.6 });
+}
+function updateSeaRings(dt) {
+  for (let i = seaRings.length - 1; i >= 0; i--) {
+    const r = seaRings[i];
+    r.life -= dt * 0.24;
+    r.m.scale.addScalar(dt * r.speed);
+    r.m.material.opacity = Math.max(0, r.life) * 0.8;
+    if (r.life <= 0) {
+      scene.remove(r.m);
+      r.m.geometry.dispose(); r.m.material.dispose();
+      seaRings.splice(i, 1);
+    }
+  }
+}
+function whaleStart() {
+  // apparaît dans le secteur de mer que le joueur regarde probablement
+  const pa = Math.atan2(player.position.z, player.position.x) + (Math.random() - 0.5) * 1.3;
+  const r = 86 + Math.random() * 22;
+  whale.p0.set(Math.cos(pa) * r, -5, Math.sin(pa) * r);
+  whale.dir.set(-Math.sin(pa), 0, Math.cos(pa)); // tangentiel
+  whale.n++;
+  whale.kind = (whale.n % 3 === 0) ? 'breach' : 'surface';
+  whale.state = whale.kind;
+  whale.t = 0;
+  whale.events = {};
+  whale.group.visible = true;
+}
+function updateWhale(dt, t) {
+  updateSeaRings(dt);
+  if (whale.state === 'hidden') {
+    whale.timer -= dt;
+    if (whale.timer <= 0) whaleStart();
+    return;
+  }
+  whale.t += dt;
+  const g = whale.group, u = whale.t;
+  if (whale.state === 'surface') {
+    // arc avant peu profond : le dos crève la surface, souffle, replongée
+    const k = u / 9.0;
+    g.position.copy(whale.p0).addScaledVector(whale.dir, u * 1.6);
+    g.position.y = -3.4 + Math.sin(Math.min(1, k) * Math.PI) * 3.9;
+    g.rotation.set(0, Math.atan2(whale.dir.x, whale.dir.z) - Math.PI / 2, 0);
+    g.rotation.z = Math.cos(k * Math.PI) * -0.22; // tangage le long de l'arc
+    if (!whale.events.inRing && g.position.y > -1.2) {
+      whale.events.inRing = true;
+      spawnSeaRing(g.position.x, g.position.z, false);
+    }
+    if (!whale.events.blow && k > 0.42) {
+      whale.events.blow = true;
+      sfx.whaleBlow();
+      // souffle : condensation brève au niveau de l'évent
+      for (let i = 0; i < 8; i++) {
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: smokeTex, transparent: true, opacity: 0.5, depthWrite: false,
+        }));
+        spr.position.set(g.position.x + 1.2, 0.6, g.position.z);
+        spr.scale.setScalar(0.4);
+        scene.add(spr);
+        smokes.push({ spr, life: 1.1 + Math.random() * 0.4 });
+      }
+    }
+    if (!whale.events.outRing && k > 0.8 && g.position.y < -1.0) {
+      whale.events.outRing = true;
+      spawnSeaRing(g.position.x, g.position.z, false);
+    }
+    if (k >= 1.15) { whale.state = 'hidden'; whale.timer = 55 + Math.random() * 45; g.visible = false; }
+  } else if (whale.state === 'breach') {
+    // approche accélérée puis breach mené par la gravité
+    const T0 = 2.2; // montée sous-marine
+    if (u < T0) {
+      const k = u / T0;
+      g.position.copy(whale.p0).addScaledVector(whale.dir, u * 3.0);
+      g.position.y = -6.5 + k * k * 5.8; // accélération
+      g.rotation.set(0, Math.atan2(whale.dir.x, whale.dir.z) - Math.PI / 2, 0);
+      g.rotation.z = 0.9; // cabré vers la surface
+    } else {
+      const b = u - T0; // phase balistique
+      const vy = 8.6;
+      const y = -0.7 + vy * b - 4.9 * b * b;
+      g.position.copy(whale.p0).addScaledVector(whale.dir, T0 * 3.0 + b * 2.2);
+      g.position.y = y;
+      const contactX = g.position.x, contactZ = g.position.z;
+      if (!whale.events.exit) {
+        // jaillissement : tous les effets partagent ce point de contact
+        whale.events.exit = { x: contactX, z: contactZ };
+        spawnBurst(new THREE.Vector3(contactX, 0.4, contactZ), 0xe8f6ff, 34, 7);
+        spawnSeaRing(contactX, contactZ, false);
+      }
+      // roulis à travers l'apex, retombée sur le flanc
+      const roll = Math.min(1, b / 1.35);
+      g.rotation.z = 0.9 - roll * 1.1;
+      g.rotation.x = roll * 2.3;
+      if (y <= -0.6 && !whale.events.slap) {
+        whale.events.slap = { x: contactX, z: contactZ };
+        sfx.whaleSlap();
+        // couronne primaire
+        spawnBurst(new THREE.Vector3(contactX, 0.5, contactZ), 0xffffff, 60, 10);
+        spawnSeaRing(contactX, contactZ, true);
+        spawnSeaRing(contactX, contactZ, false);
+        // claque du corps, retardée, au même point
+        setTimeout(() => {
+          spawnBurst(new THREE.Vector3(contactX, 0.4, contactZ), 0xdff0ff, 40, 7);
+          spawnSeaRing(contactX, contactZ, true);
+        }, 260);
+        // brume
+        for (let i = 0; i < 10; i++) {
+          const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: smokeTex, transparent: true, opacity: 0.45, depthWrite: false,
+          }));
+          spr.position.set(contactX + (Math.random() - 0.5) * 4, 0.8, contactZ + (Math.random() - 0.5) * 4);
+          spr.scale.setScalar(1.2);
+          scene.add(spr);
+          smokes.push({ spr, life: 1.6 + Math.random() * 0.8 });
+        }
+      }
+      if (y < -6) { whale.state = 'hidden'; whale.timer = 70 + Math.random() * 50; g.visible = false; }
+    }
+  }
 }
 
 // ------------------------------------------------------------
@@ -1926,6 +2232,8 @@ const sfx = {
   quest: () => { tone(523, 0.15, 'triangle', 0.16); tone(659, 0.15, 'triangle', 0.16, 0.12); tone(784, 0.25, 'triangle', 0.16, 0.24); },
   door: () => { tone(120, 0.7, 'sawtooth', 0.12); tone(90, 0.9, 'sawtooth', 0.1, 0.15); },
   chevron: () => { tone(160, 0.1, 'square', 0.16); tone(80, 0.2, 'sawtooth', 0.14, 0.05); },
+  whaleBlow: () => { tone(900, 0.5, 'sawtooth', 0.03); tone(1400, 0.4, 'sawtooth', 0.02, 0.05); },
+  whaleSlap: () => { tone(65, 0.9, 'sawtooth', 0.2, 0.1); tone(48, 1.3, 'sawtooth', 0.16, 0.2); },
   travel: () => {
     tone(520, 0.3, 'sine', 0.16); tone(400, 0.3, 'sine', 0.15, 0.18);
     tone(300, 0.35, 'sine', 0.15, 0.36); tone(210, 0.5, 'sine', 0.14, 0.55);
@@ -2704,8 +3012,10 @@ function tick() {
     bf.wingL.scale.x = flap; bf.wingR.scale.x = flap;
   }
 
-  // océan animé + vent sur la végétation + grain de film
+  // océan, banc de poissons, baleine
   waterU.uTime.value = t;
+  updateSchool(dt, t);
+  updateWhale(dt, t);
   grainPass.uniforms.uTime.value = t;
   for (const s of windShaders) s.uniforms.uTime.value = t;
 
@@ -2883,6 +3193,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth / 2, window.innerHeight / 2);
 });
 // iOS : re-layout après rotation
 window.addEventListener('orientationchange', () => {
@@ -2897,6 +3208,8 @@ window.__game = {
   setCam: (yaw, pitch) => { camYaw = yaw; camPitch = pitch; },
   debugGate: (open) => { dialChevrons = open ? 9 : 0; horizonTarget = open ? 1 : 0; templeLightTarget = open ? 3 : 0.5; },
   startTravel,
+  whaleNow: (kind) => { whale.timer = 0; whale.n = kind === 'breach' ? 2 : 0; },
+  whale, school,
   // Exporte chaque asset héros en .glb (bibliothèque d'assets du jeu)
   exportAssets: async () => {
     const { GLTFExporter } = await import('./vendor/exporters/GLTFExporter.js');
