@@ -13,6 +13,7 @@ import { EffectComposer } from './vendor/postprocessing/EffectComposer.js';
 import { RenderPass } from './vendor/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from './vendor/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from './vendor/postprocessing/OutputPass.js';
+import { ShaderPass } from './vendor/postprocessing/ShaderPass.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import * as SkeletonUtils from './vendor/utils/SkeletonUtils.js';
 import { mergeVertices } from './vendor/utils/BufferGeometryUtils.js';
@@ -55,7 +56,7 @@ renderer.toneMappingExposure = 1.04;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xbfe0f2, 60, 165);
+scene.fog = new THREE.Fog(0xd4e0dd, 60, 165);
 
 const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 700);
 
@@ -71,11 +72,29 @@ const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.5, 0.97);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+// grain de film + micro-saturation (le « polish » des sketches three.js)
+const grainPass = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)) + uTime * 13.7) * 43758.5453); }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+      c.rgb = mix(vec3(l), c.rgb, 1.07);
+      c.rgb += (hash(vUv * vec2(1917.0, 1031.0)) - 0.5) * 0.04;
+      gl_FragColor = c;
+    }`,
+});
+composer.addPass(grainPass);
 
 // Lumières
 const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x5a7a48, 0.9);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff2d0, 1.9);
+const sun = new THREE.DirectionalLight(0xffedc4, 1.9);
 sun.position.set(32, 52, 18);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -287,8 +306,8 @@ const skyU = {
       void main(){
         vec3 nd = normalize(vDir);
         float h = clamp(nd.y, -1.0, 1.0);
-        vec3 dayZen = vec3(0.28, 0.58, 0.86);
-        vec3 dayHor = vec3(0.86, 0.93, 0.96);
+        vec3 dayZen = vec3(0.30, 0.56, 0.83);
+        vec3 dayHor = vec3(0.93, 0.91, 0.84);
         vec3 nightZen = vec3(0.015, 0.03, 0.09);
         vec3 nightHor = vec3(0.09, 0.13, 0.26);
         float g = pow(smoothstep(-0.05, 0.6, h), 0.75);
@@ -428,8 +447,8 @@ let sunSprite, moon, moon2, planet;
 //  Jour / Nuit (les Brumes de l'acte 2)
 // ------------------------------------------------------------
 const MOOD = {
-  dayFog: new THREE.Color(0xbfe0f2), nightFog: new THREE.Color(0x121c33),
-  daySun: new THREE.Color(0xfff2d0), nightSun: new THREE.Color(0x8fa8ff),
+  dayFog: new THREE.Color(0xd4e0dd), nightFog: new THREE.Color(0x121c33),
+  daySun: new THREE.Color(0xffedc4), nightSun: new THREE.Color(0x8fa8ff),
   dayHemiSky: new THREE.Color(0xcfe8ff), nightHemiSky: new THREE.Color(0x2a3a66),
   dayHemiGnd: new THREE.Color(0x5a7a48), nightHemiGnd: new THREE.Color(0x18203a),
 };
@@ -515,14 +534,16 @@ function applyMood() {
 }
 
 // ------------------------------------------------------------
-//  Océan en shader : vagues, écume au rivage, reflets
+//  Océan : houle directionnelle, écume organique qui lèche le
+//  rivage, chemin de soleil scintillant (inspiré des sketches
+//  « ocean shore » de la scène créative three.js)
 // ------------------------------------------------------------
 const waterU = THREE.UniformsUtils.merge([
   THREE.UniformsLib.fog,
   { uTime: { value: 0 }, uNight: { value: 0 }, uDusk: { value: 0 } },
 ]);
 {
-  const geo = new THREE.PlaneGeometry(520, 520, 56, 56);
+  const geo = new THREE.PlaneGeometry(520, 520, 96, 96);
   const mat = new THREE.ShaderMaterial({
     uniforms: waterU,
     transparent: true,
@@ -530,15 +551,20 @@ const waterU = THREE.UniformsUtils.merge([
     vertexShader: `
       uniform float uTime;
       varying vec2 vXZ;
-      varying float vW;
+      varying float vH;
       #include <fog_pars_vertex>
       void main(){
         vec3 p = position;
-        float w = sin(p.x * 0.14 + uTime * 1.2) * 0.5
-                + cos(p.y * 0.11 - uTime * 0.9) * 0.5
-                + sin((p.x + p.y) * 0.07 + uTime * 0.6) * 0.5;
-        p.z += w * 0.28;
-        vW = w;
+        float d = length(p.xy);
+        // houle : 3 ondes directionnelles amorties près du rivage + clapot
+        float damp = 0.05 + smoothstep(61.0, 88.0, d) * 0.95;
+        float w1 = sin(dot(p.xy, vec2(0.055, 0.035)) + uTime * 0.85);
+        float w2 = sin(dot(p.xy, vec2(-0.042, 0.061)) + uTime * 0.62 + 2.1);
+        float w3 = sin(dot(p.xy, vec2(0.091, -0.021)) + uTime * 1.25 + 4.3);
+        float chop = sin(p.x * 0.34 + uTime * 1.8) * sin(p.y * 0.29 - uTime * 1.4);
+        float h = (w1 * 0.28 + w2 * 0.19 + w3 * 0.14) * damp + chop * 0.035;
+        p.z += h;
+        vH = h;
         vXZ = position.xy;
         vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mvPosition;
@@ -549,33 +575,50 @@ const waterU = THREE.UniformsUtils.merge([
       uniform float uNight;
       uniform float uDusk;
       varying vec2 vXZ;
-      varying float vW;
+      varying float vH;
       #include <fog_pars_fragment>
       void main(){
         float d = length(vXZ);
-        vec3 shallow = mix(vec3(0.30, 0.72, 0.80), vec3(0.07, 0.19, 0.34), uNight);
-        vec3 deep    = mix(vec3(0.05, 0.35, 0.62), vec3(0.015, 0.07, 0.18), uNight);
-        vec3 col = mix(shallow, deep, smoothstep(56.0, 130.0, d));
-        // crêtes scintillantes
-        float sp = sin(vXZ.x * 0.55 + uTime * 1.7) * cos(vXZ.y * 0.5 - uTime * 1.3);
-        col += vec3(0.55, 0.75, 0.85) * smoothstep(0.86, 1.0, sp) * (0.28 - 0.18 * uNight);
-        col += vW * 0.035;
-        // paillettes de soleil (le jour) / de lune (la nuit) — le bloom les fait briller
-        float gl = sin(vXZ.x * 3.3 + uTime * 2.1) * sin(vXZ.y * 2.9 - uTime * 1.6)
-                 + sin(vXZ.x * 8.1 - uTime * 1.2) * sin(vXZ.y * 7.3 + uTime * 2.3);
-        float glint = smoothstep(1.55, 1.95, gl);
-        col += vec3(1.3, 1.15, 0.85) * glint * (1.0 - uNight) * 0.9;
-        col += vec3(0.7, 0.85, 1.2) * glint * uNight * 0.55;
+        float shore = d - 59.0; // < 0 : côté plage
+        // dégradé turquoise -> lagon -> abysse
+        vec3 cShallow = mix(vec3(0.45, 0.85, 0.80), vec3(0.10, 0.24, 0.38), uNight);
+        vec3 cMid     = mix(vec3(0.14, 0.56, 0.66), vec3(0.05, 0.14, 0.26), uNight);
+        vec3 cDeep    = mix(vec3(0.03, 0.26, 0.46), vec3(0.015, 0.06, 0.16), uNight);
+        vec3 col = mix(cShallow, cMid, smoothstep(0.0, 14.0, shore));
+        col = mix(col, cDeep, smoothstep(12.0, 55.0, shore));
+        // volume : crêtes claires, creux sombres
+        col += vH * (0.11 - 0.05 * uNight);
+        // bruit organique
+        float n1 = sin(vXZ.x * 1.7 + sin(vXZ.y * 2.3 + uTime * 0.9))
+                 * sin(vXZ.y * 1.9 + sin(vXZ.x * 2.1 - uTime * 0.7));
+        float n2 = sin(vXZ.x * 5.3 - uTime * 1.1) * sin(vXZ.y * 4.7 + uTime * 0.9);
+        float noise = n1 * 0.6 + n2 * 0.4;
+        // la vague qui lèche : ligne d'écume qui avance et se retire
+        float lap = sin(uTime * 0.65 + sin(atan(vXZ.y, vXZ.x) * 5.0) * 1.3) * 2.4;
+        float edge = shore + lap;
+        float foamLine = 1.0 - smoothstep(0.0, 2.8 + noise * 1.3, abs(edge - 0.9));
+        foamLine *= smoothstep(-0.55, 0.35, noise + 0.5); // dentelle dissoute
+        // traînée d'écume résiduelle derrière la ligne
+        float trail = (1.0 - smoothstep(0.0, 6.5, abs(edge))) * smoothstep(0.1, 0.5, noise) * 0.4;
+        // écume des crêtes au large
+        float crest = smoothstep(0.26, 0.48, vH) * smoothstep(6.0, 22.0, shore)
+                    * smoothstep(-0.2, 0.5, noise) * 0.55;
+        float foam = clamp(foamLine + trail + crest, 0.0, 1.0);
+        vec3 foamCol = mix(vec3(0.97, 0.99, 1.0), vec3(0.55, 0.66, 0.82), uNight);
+        col = mix(col, foamCol, foam * 0.92);
+        // chemin de soleil / de lune scintillant, orienté vers l'astre
+        vec2 sunA = normalize(vec2(32.0, -18.0));
+        float band = pow(max(0.0, dot(normalize(vXZ), sunA)), 16.0);
+        float glit = sin(vXZ.x * 6.1 + uTime * 2.2) * sin(vXZ.y * 5.7 - uTime * 1.7);
+        float sparkle = smoothstep(0.72, 0.97, glit);
+        col += vec3(1.25, 1.02, 0.72) * sparkle * band * (1.0 - uNight) * 1.15;
+        col += vec3(0.6, 0.78, 1.15) * sparkle * uNight * 0.45;
         // reflet du couchant
-        col = mix(col, vec3(0.9, 0.45, 0.2), uDusk * 0.28);
-        col += vec3(1.2, 0.55, 0.2) * glint * uDusk * 0.8;
-        // écume qui vient lécher le rivage
-        float foamBand = smoothstep(63.0, 58.5, d) * smoothstep(54.0, 57.5, d);
-        float foamWave = 0.5 + 0.5 * sin(d * 1.9 - uTime * 2.2 + sin(atan(vXZ.y, vXZ.x) * 8.0) * 0.7);
-        float foam = foamBand * smoothstep(0.55, 0.95, foamWave);
-        col = mix(col, vec3(0.93, 0.97, 0.98), clamp(foam, 0.0, 1.0) * (0.8 - 0.55 * uNight));
-        float alpha = 0.95 - smoothstep(63.0, 57.0, d) * 0.38;
-        gl_FragColor = vec4(col, alpha);
+        col = mix(col, vec3(0.9, 0.45, 0.2), uDusk * 0.25);
+        col += vec3(1.25, 0.5, 0.18) * sparkle * band * uDusk * 1.3;
+        // transparence près du bord : le sable transparaît sous l'eau
+        float alpha = 0.96 - (1.0 - smoothstep(-4.0, 3.0, shore)) * 0.5;
+        gl_FragColor = vec4(col, clamp(alpha, 0.3, 0.97));
         #include <fog_fragment>
       }`,
   });
@@ -2643,14 +2686,15 @@ function tick() {
       + Math.sin(t * 1.4 + s) * 0.7 + Math.sin(t * 3.1 + s * 2) * 0.2;
     lf.m.position.set(x, y, z);
     lf.m.rotation.set(t * 2.1 + s, t * 1.5 + s * 2, t * 1.2 + s * 3);
-    lf.m.visible = Math.hypot(x, z) < 58;
+    lf.m.visible = Math.hypot(x, z) < 58 && lf.m.position.distanceToSquared(camera.position) > 3;
   }
 
   // papillons (le jour)
   const bfVisible = night01 < 0.6;
   for (const bf of butterflies) {
-    bf.group.visible = bfVisible;
-    if (!bfVisible) continue;
+    // jamais collé à l'objectif de la caméra
+    bf.group.visible = bfVisible && bf.group.position.distanceToSquared(camera.position) > 5;
+    if (!bf.group.visible) continue;
     const a = t * bf.sp + bf.ph;
     const x = bf.cx + Math.cos(a) * bf.r;
     const z = bf.cz + Math.sin(a * 0.8) * bf.r;
@@ -2660,8 +2704,9 @@ function tick() {
     bf.wingL.scale.x = flap; bf.wingR.scale.x = flap;
   }
 
-  // océan animé + vent sur la végétation
+  // océan animé + vent sur la végétation + grain de film
   waterU.uTime.value = t;
+  grainPass.uniforms.uTime.value = t;
   for (const s of windShaders) s.uniforms.uTime.value = t;
 
   // franchir l'horizon des événements une fois la Porte rouverte
@@ -2710,11 +2755,24 @@ function tick() {
   updateBursts(dt);
   updateInteractables();
 
-  // --- caméra 3e personne ---
-  const camDist = 7.5;
+  // --- caméra 3e personne avec anti-occlusion ---
   const target = new THREE.Vector3(
     player.position.x, player.position.y + 1.6, player.position.z
   );
+  // si un arbre/rocher bloque la ligne de vue, la caméra se rapproche
+  const dirX = Math.sin(camYaw), dirZ = Math.cos(camYaw);
+  let maxXZ = 7.5 * Math.cos(camPitch);
+  for (const c of colliders) {
+    const rx = c.x - target.x, rz = c.z - target.z;
+    const tproj = rx * dirX + rz * dirZ;
+    if (tproj < 0.6 || tproj > maxXZ + c.r + 1.3) continue;
+    const px = rx - dirX * tproj, pz = rz - dirZ * tproj;
+    const occR = c.r + 1.3; // approx. du feuillage autour du tronc
+    if (px * px + pz * pz < occR * occR) {
+      maxXZ = Math.min(maxXZ, Math.max(1.8, tproj - occR - 0.2));
+    }
+  }
+  const camDist = maxXZ / Math.max(0.3, Math.cos(camPitch));
   const desired = new THREE.Vector3(
     target.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
     target.y + Math.sin(camPitch) * camDist,
@@ -2727,6 +2785,9 @@ function tick() {
   }
   if (desired.y < minY) desired.y = minY;
   camera.position.lerp(desired, started ? Math.min(1, dt * 6) : 1);
+  // la caméra ne traverse jamais le sol, même en plein déplacement interpolé
+  const camFloor = Math.max(terrainH(camera.position.x, camera.position.z), 0) + 0.6;
+  if (camera.position.y < camFloor) camera.position.y = camFloor;
   camera.lookAt(target);
   started = true;
 
@@ -2831,7 +2892,7 @@ window.addEventListener('orientationchange', () => {
 // Accès debug (tests automatisés) — sans effet sur le jeu
 window.__game = {
   player, quest, crystals, sage, doorSpot, braziers, enemies,
-  _dhd: dhdGroup,
+  _dhd: dhdGroup, camera, butterflies,
   doAttack, getHearts: () => hearts, getNight: () => night01,
   setCam: (yaw, pitch) => { camYaw = yaw; camPitch = pitch; },
   debugGate: (open) => { dialChevrons = open ? 9 : 0; horizonTarget = open ? 1 : 0; templeLightTarget = open ? 3 : 0.5; },

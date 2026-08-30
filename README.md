@@ -4,7 +4,7 @@ Un jeu d'aventure 3D **mobile-first** dans l'univers de Stargate, en [three.js](
 
 > *Fan game non officiel et non commercial. Stargate SG-1 / Atlantis / Universe sont des marques de MGM/Amazon — tous les visuels de ce jeu sont générés procéduralement, aucun asset des séries n'est utilisé.*
 
-| L'horizon des événements | La nuit des Réplicateurs |
+| Vers la Porte | Le rivage de P4X-731 |
 |---|---|
 | ![Acte 1](docs/screenshot.png) | ![Acte 2](docs/screenshot-night.png) |
 
@@ -46,7 +46,9 @@ Ou active simplement **GitHub Pages** sur ce dépôt (Settings → Pages → bra
 - **Bibliothèque glTF** : chaque asset héros est exporté en `.glb` autonome dans `assets/library/` (Porte, DHD, obélisque, cristal, rocher), réutilisable dans Blender ou tout moteur.
 - **Direction artistique cel-shading** : tous les matériaux du monde passent par une rampe de lumière toon (bandes douces façon BOTW/Ghibli), avec rim light sur les personnages, vent en vertex shader sur la végétation et grain procédural sur la pierre.
 - **6 000 brins d'herbe instanciés** qui ondulent dans le vent, feuilles portées par la brise, papillons le jour, étoiles filantes la nuit.
-- **Pipeline HDR** : rendu half-float multisamplé, bloom (UnrealBloom), tone mapping ACES ; lumières dynamiques (épée, braseros, temple) ; crépuscule embrasé pendant la transition jour/nuit.
+- **Pipeline HDR** : rendu half-float multisamplé, bloom (UnrealBloom), tone mapping ACES, **grain de film + micro-saturation** en post ; lumières dynamiques ; crépuscule embrasé pendant la transition jour/nuit ; grading doré harmonisé (ciel crème, soleil chaud, brouillard chaud).
+- **Océan artistique** : houle directionnelle amortie au rivage, **ligne d'écume organique qui avance et se retire** en léchant la plage (dissolution par bruit), traînées d'écume, crêtes moutonnantes au large, **chemin de soleil scintillant** orienté vers l'astre, dégradé turquoise → lagon → abysse, transparence sur le sable.
+- **Caméra anti-occlusion** : la caméra se rapproche automatiquement quand un arbre ou un rocher bloque la ligne de vue (comme dans les jeux third-person), et ne traverse jamais le sol.
 - **Perf mobile** : `InstancedMesh` massif, pixel ratio plafonné à 2, une seule lumière à ombres (2048²) qui suit le joueur, brouillard pour limiter la draw distance.
 - **Gameplay** : machine à états de quête (8 étapes sur 2 actes), dialogues, collisions par cercles, caméra 3ᵉ personne avec orbite tactile, particules de collecte/combat/victoire.
 - **La Porte des Étoiles** : anneau en naqahdah **sculpté par déplacement de sommets** (surface martelée haute densité), bande de 39 glyphes générés en canvas avec séparateurs, 9 chevrons détaillés en V qui s'enclenchent, **horizon des événements animé en shader** (la « flaque »), kawoosh en particules, DHD au dôme orange avec ses **39 touches à glyphes** sur deux couronnes ; séquence de composition scriptée.
