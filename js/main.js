@@ -15,6 +15,7 @@ import { UnrealBloomPass } from './vendor/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from './vendor/postprocessing/OutputPass.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import * as SkeletonUtils from './vendor/utils/SkeletonUtils.js';
+import { mergeVertices } from './vendor/utils/BufferGeometryUtils.js';
 
 // ------------------------------------------------------------
 //  Constantes du monde
@@ -159,6 +160,32 @@ const toonRamp = (() => {
 })();
 function TOON(params = {}) {
   return new THREE.MeshToonMaterial({ gradientMap: toonRamp, ...params });
+}
+
+// ------------------------------------------------------------
+//  Sculpture procédurale : déplace les sommets le long des
+//  normales avec un bruit multi-octaves (pierre taillée, métal
+//  martelé, feuillage froissé…)
+// ------------------------------------------------------------
+function sculpt(geo, amp, freq, seed = 0, flat = false) {
+  let g = geo.index ? geo : mergeVertices(geo);
+  if (!g.index) g = mergeVertices(g);
+  g.computeVertexNormals();
+  const pos = g.attributes.position;
+  const nor = g.attributes.normal;
+  const v = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    n.fromBufferAttribute(nor, i);
+    const d =
+      Math.sin(v.x * freq + seed) * Math.sin(v.y * freq * 1.31 + seed * 2.1) * Math.sin(v.z * freq * 0.83 + seed * 3.7) +
+      0.5 * Math.sin(v.x * freq * 2.71 + seed) * Math.sin(v.y * freq * 2.33) * Math.sin(v.z * freq * 3.17) +
+      0.25 * Math.sin(v.x * freq * 5.3) * Math.sin(v.z * freq * 6.1);
+    pos.setXYZ(i, v.x + n.x * d * amp, v.y + n.y * d * amp, v.z + n.z * d * amp);
+  }
+  if (flat) g = g.toNonIndexed();
+  g.computeVertexNormals();
+  return g;
 }
 
 // ------------------------------------------------------------
@@ -442,7 +469,7 @@ function applyMood() {
 //  Terrain lissé, dégradés continus par altitude + grain shader
 // ------------------------------------------------------------
 {
-  const seg = 116;
+  const seg = 132;
   const geo = new THREE.PlaneGeometry(ISLAND_R * 2.7, ISLAND_R * 2.7, seg, seg);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -597,9 +624,9 @@ function nearReserved(x, z) {
 // Pins (3 étages de feuillage arrondis, teintes variées, vent)
 {
   const N = 60;
-  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.2, 10);
+  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.34, 2.2, 14, 2);
   const trunkMat = TOON({ color: 0x74513a });
-  const leafGeo = new THREE.ConeGeometry(1.5, 2.4, 14);
+  const leafGeo = sculpt(new THREE.ConeGeometry(1.5, 2.4, 22, 4), 0.09, 2.4, 3.1);
   const leafMat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.07, swayY: [-1.2, 1.2] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
@@ -638,7 +665,7 @@ function nearReserved(x, z) {
   const N = 26;
   const trunkGeo = new THREE.CylinderGeometry(0.16, 0.28, 1.7, 10);
   const trunkMat = TOON({ color: 0x84604a });
-  const blobGeo = new THREE.IcosahedronGeometry(1.0, 2);
+  const blobGeo = sculpt(new THREE.IcosahedronGeometry(1.0, 3), 0.11, 2.3, 5.7);
   const blobMat = stylize(TOON({ color: 0xffffff }),
     { sway: 0.09, swayY: [-1, 1] });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
@@ -680,7 +707,7 @@ function nearReserved(x, z) {
     { sway: 0.07, swayY: [-0.6, 0.6] });
   const cocoMat = TOON({ color: 0x6e4a2e });
   const segGeo = new THREE.CylinderGeometry(0.13, 0.18, 1.1, 9);
-  const leafGeo = new THREE.SphereGeometry(1, 9, 7);
+  const leafGeo = new THREE.SphereGeometry(1, 14, 10);
   const cocoGeo = new THREE.SphereGeometry(0.14, 8, 6);
   for (let i = 0; i < 9; i++) {
     const s = randSpot(46, 56, 0.12, 0.75);
@@ -720,31 +747,41 @@ function nearReserved(x, z) {
   }
 }
 
-// Rochers arrondis (teintes variées, grain)
+// Rochers : 4 variantes haute densité sculptées (facettes anguleuses)
+const rockVariantGeos = [];
 {
-  const N = 26;
-  const geo = new THREE.IcosahedronGeometry(0.9, 1);
+  for (let vi = 0; vi < 4; vi++) {
+    rockVariantGeos.push(sculpt(
+      new THREE.IcosahedronGeometry(0.9, 2),
+      0.15 + vi * 0.035, 1.7 + vi * 0.6, vi * 7.3, true
+    ));
+  }
   const mat = stylize(TOON({ color: 0xffffff }), { grain: true });
-  const rocks = new THREE.InstancedMesh(geo, mat, N);
-  rocks.castShadow = true;
+  const per = 8;
+  const meshes = rockVariantGeos.map(g => {
+    const m = new THREE.InstancedMesh(g, mat, per);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  });
+  const counts = [0, 0, 0, 0];
   const c = new THREE.Color();
-  let ri = 0;
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < 26; i++) {
     const s = randSpot(8, 54, 0.15);
     if (!s) continue;
+    const vi = i % 4;
+    if (counts[vi] >= per) continue;
     const sc = 0.5 + rng() * 1.3;
     dummy.position.set(s.x, s.h + sc * 0.3, s.z);
     dummy.scale.set(sc, sc * (0.6 + rng() * 0.5), sc);
     dummy.rotation.set(rng(), rng() * Math.PI * 2, rng());
     dummy.updateMatrix();
-    rocks.setMatrixAt(ri, dummy.matrix);
+    meshes[vi].setMatrixAt(counts[vi], dummy.matrix);
     c.setHSL(0.08 + rng() * 0.55, 0.03 + rng() * 0.06, 0.5 + rng() * 0.16);
-    rocks.setColorAt(ri, c);
-    ri++;
+    meshes[vi].setColorAt(counts[vi], c);
+    counts[vi]++;
     if (sc > 0.8) colliders.push({ x: s.x, z: s.z, r: sc * 0.8 });
   }
-  rocks.count = ri;
-  scene.add(rocks);
+  meshes.forEach((m, i) => { m.count = counts[i]; scene.add(m); });
 }
 
 // Champ d'herbe dense (milliers de brins qui ondulent — façon plaine d'Hyrule)
@@ -1308,9 +1345,9 @@ const templeBaseY = terrainH(0, -38);
   const naqahdahDark = TOON({ color: 0x4a4f5c });
 
   // dais circulaire + marches
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(6.6, 7.2, 0.7, 28), stoneDark);
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(6.6, 7.2, 0.7, 72), stoneDark);
   dais.position.y = 0.35;
-  const daisTop = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.6, 0.25, 28), stone);
+  const daisTop = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.6, 0.25, 72), stone);
   daisTop.position.y = 0.82;
   temple.add(dais, daisTop);
   for (let k = 0; k < 3; k++) {
@@ -1319,10 +1356,28 @@ const templeBaseY = terrainH(0, -38);
     temple.add(step);
   }
 
-  // anneau extérieur en naqahdah
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(4.1, 0.52, 14, 48), naqahdah);
+  // anneau extérieur en naqahdah martelé (haute densité + sculpture)
+  const ring = new THREE.Mesh(
+    sculpt(new THREE.TorusGeometry(4.1, 0.52, 26, 116), 0.028, 3.4, 2.2),
+    naqahdah
+  );
   ring.position.y = 5.15;
   temple.add(ring);
+  // 39 séparateurs de glyphes autour de la bande
+  {
+    const studGeo = new THREE.BoxGeometry(0.055, 0.1, 0.58);
+    const studs = new THREE.InstancedMesh(studGeo, naqahdahDark, 39);
+    for (let i = 0; i < 39; i++) {
+      const a = (i / 39) * Math.PI * 2;
+      dummy.position.set(Math.cos(a) * 3.72, 5.15 + Math.sin(a) * 3.72, 0);
+      dummy.rotation.set(0, 0, a + Math.PI / 2);
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      studs.setMatrixAt(i, dummy.matrix);
+    }
+    studs.castShadow = true;
+    temple.add(studs);
+  }
 
   // bande de symboles (glyphes générés en canvas)
   const glyphTex = (() => {
@@ -1351,27 +1406,36 @@ const templeBaseY = terrainH(0, -38);
     t.wrapS = THREE.RepeatWrapping;
     return t;
   })();
-  const bandGeo = new THREE.CylinderGeometry(3.72, 3.72, 0.6, 48, 1, true);
+  const bandGeo = new THREE.CylinderGeometry(3.72, 3.72, 0.6, 116, 1, true);
   bandGeo.rotateX(Math.PI / 2); // axe le long de Z
   symbolBand = new THREE.Mesh(bandGeo, TOON({ map: glyphTex, emissive: 0x6a6050, emissiveIntensity: 0.35, side: THREE.DoubleSide }));
   symbolBand.position.y = 5.15;
   temple.add(symbolBand);
 
-  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(3.45, 0.16, 10, 48), naqahdahDark);
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(3.45, 0.16, 14, 116), naqahdahDark);
   innerRing.position.y = 5.15;
   temple.add(innerRing);
 
-  // 9 chevrons (s'illuminent pendant la composition)
+  // 9 chevrons détaillés en V (le cœur s'illumine pendant la composition)
   for (let i = 0; i < 9; i++) {
     const a = Math.PI / 2 + (i / 9) * Math.PI * 2;
-    const ch = new THREE.Mesh(
-      new THREE.ConeGeometry(0.3, 0.55, 3),
+    const chg = new THREE.Group();
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.68, 0.12), naqahdahDark);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.52, 0.15), naqahdah);
+    armL.position.set(-0.13, 0.05, 0.03); armL.rotation.z = 0.4;
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.52, 0.15), naqahdah);
+    armR.position.set(0.13, 0.05, 0.03); armR.rotation.z = -0.4;
+    const core = new THREE.Mesh(
+      new THREE.ConeGeometry(0.15, 0.36, 3),
       TOON({ color: 0x9a6a35, emissive: 0xff7a20, emissiveIntensity: 0 })
     );
-    ch.position.set(Math.cos(a) * 4.15, 5.15 + Math.sin(a) * 4.15, 0.42);
-    ch.rotation.z = a + Math.PI / 2; // pointe vers le centre
-    temple.add(ch);
-    chevrons.push(ch);
+    core.position.set(0, -0.06, 0.08);
+    chg.add(back, armL, armR, core);
+    chg.position.set(Math.cos(a) * 4.18, 5.15 + Math.sin(a) * 4.18, 0.42);
+    chg.rotation.z = a + Math.PI / 2; // pointe vers le centre
+    chg.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    temple.add(chg);
+    chevrons.push(core);
   }
 
   // l'horizon des événements (la « flaque » animée en shader)
@@ -1419,15 +1483,17 @@ const templeBaseY = terrainH(0, -38);
 }
 
 // Le DHD (console de composition)
+let dhdGroup;
 {
   const dhd = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.62, 1.0, 10),
+  dhdGroup = dhd;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.62, 1.0, 22),
     stylize(TOON({ color: 0x6a6f7c }), { grain: true }));
   base.position.y = 0.5;
-  const consoleTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.75, 0.32, 14), TOON({ color: 0x545968 }));
+  const consoleTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.75, 0.32, 38), TOON({ color: 0x545968 }));
   consoleTop.position.y = 1.1;
   consoleTop.rotation.x = 0.35;
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10),
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.3, 26, 18),
     TOON({ color: 0xff8850, emissive: 0xd84a10, emissiveIntensity: 0.8 }));
   dome.position.set(0, 1.32, -0.1);
   const domeGlow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1436,6 +1502,29 @@ const templeBaseY = terrainH(0, -38);
   }));
   domeGlow.scale.setScalar(1.6);
   domeGlow.position.copy(dome.position);
+  // deux couronnes de touches à glyphes (39 au total, quelques-unes allumées)
+  {
+    const btnGroup = new THREE.Group();
+    btnGroup.position.y = 1.1;
+    btnGroup.rotation.x = 0.35;
+    const btnGeo = new THREE.BoxGeometry(0.12, 0.05, 0.17);
+    const brng = mulberry32(41);
+    for (const [r, n] of [[0.52, 16], [0.82, 23]]) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const lit = brng() < 0.2;
+        const b = new THREE.Mesh(btnGeo, TOON({
+          color: lit ? 0xffb070 : 0x8a5a3a,
+          emissive: lit ? 0xd86a20 : 0x1a0e06,
+          emissiveIntensity: lit ? 1.1 : 0.3,
+        }));
+        b.position.set(Math.cos(a) * r, 0.17, Math.sin(a) * r);
+        b.rotation.y = -a;
+        btnGroup.add(b);
+      }
+    }
+    dhd.add(btnGroup);
+  }
   dhd.add(base, consoleTop, dome, domeGlow);
   dhd.scale.setScalar(1.35);
   dhd.position.set(0, terrainH(0, -30.5), -30.5);
@@ -1462,8 +1551,8 @@ const crystals = [];
   const spots = [
     [30, 18], [-26, 24], [-34, -18], [24, -30], [8, 42],
   ];
-  const geo = new THREE.OctahedronGeometry(0.55, 0);
-  const innerGeo = new THREE.OctahedronGeometry(0.28, 0);
+  const geo = sculpt(new THREE.OctahedronGeometry(0.55, 2), 0.05, 4.2, 1.3, true);
+  const innerGeo = new THREE.OctahedronGeometry(0.28, 1);
   for (let i = 0; i < CRYSTAL_COUNT; i++) {
     const [x, z] = spots[i];
     const mat = new THREE.MeshPhongMaterial({
@@ -1554,8 +1643,13 @@ const braziers = [];
     const g = new THREE.Group();
     const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 1.1), stoneMat);
     plinth.position.y = 0.25;
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.4, 2.4, 4), stoneMat);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.4, 2.4, 4, 4), stoneMat);
     shaft.position.y = 1.7; shaft.rotation.y = Math.PI / 4;
+    for (const cy of [0.9, 2.55]) {
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.36 - (cy > 2 ? 0.09 : 0), 0.05, 8, 4), stoneMat);
+      collar.position.y = cy; collar.rotation.x = Math.PI / 2; collar.rotation.z = Math.PI / 4;
+      g.add(collar);
+    }
     const groove = new THREE.Mesh(new THREE.BoxGeometry(0.07, 2.0, 0.47),
       TOON({ color: 0x9fd8ff, emissive: 0x2f8fd8, emissiveIntensity: 0.35 }));
     groove.position.y = 1.65;
@@ -2737,8 +2831,42 @@ window.addEventListener('orientationchange', () => {
 // Accès debug (tests automatisés) — sans effet sur le jeu
 window.__game = {
   player, quest, crystals, sage, doorSpot, braziers, enemies,
+  _dhd: dhdGroup,
   doAttack, getHearts: () => hearts, getNight: () => night01,
   setCam: (yaw, pitch) => { camYaw = yaw; camPitch = pitch; },
   debugGate: (open) => { dialChevrons = open ? 9 : 0; horizonTarget = open ? 1 : 0; templeLightTarget = open ? 3 : 0.5; },
   startTravel,
+  // Exporte chaque asset héros en .glb (bibliothèque d'assets du jeu)
+  exportAssets: async () => {
+    const { GLTFExporter } = await import('./vendor/exporters/GLTFExporter.js');
+    const exporter = new GLTFExporter();
+    const clean = (obj) => {
+      const c = obj.clone(true);
+      const kill = [];
+      c.traverse(o => {
+        if (o.isSprite || o.isPoints || o.isLight ||
+            (o.material && o.material.isShaderMaterial)) kill.push(o);
+      });
+      kill.forEach(o => o.parent && o.parent.remove(o));
+      return c;
+    };
+    const items = {
+      porte_des_etoiles: clean(temple),
+      dhd: clean(window.__game._dhd),
+      obelisque_lantien: clean(braziers[0].group),
+      cristal_dhd: clean(crystals[0].mesh),
+      rocher: new THREE.Mesh(rockVariantGeos[0], TOON({ color: 0x8f9099 })),
+    };
+    const out = {};
+    for (const [name, obj] of Object.entries(items)) {
+      const buf = await exporter.parseAsync(obj, { binary: true });
+      let bin = '';
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i += 8192) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+      }
+      out[name] = btoa(bin);
+    }
+    return out;
+  },
 };
