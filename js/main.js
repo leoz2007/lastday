@@ -14,6 +14,7 @@ import { RenderPass } from './vendor/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from './vendor/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from './vendor/postprocessing/OutputPass.js';
 import { ShaderPass } from './vendor/postprocessing/ShaderPass.js';
+import { FXAAShader } from './vendor/shaders/FXAAShader.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import * as SkeletonUtils from './vendor/utils/SkeletonUtils.js';
 import { mergeVertices, mergeGeometries } from './vendor/utils/BufferGeometryUtils.js';
@@ -45,6 +46,10 @@ function terrainH(x, z) {
 // ------------------------------------------------------------
 //  Rendu de base
 // ------------------------------------------------------------
+// Safari iOS gère mal les render targets multisamplés en half-float :
+// on désactive le MSAA du composer et on le remplace par du FXAA
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -62,7 +67,7 @@ const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerH
 
 // Post-processing : rendu HDR multisampled + bloom + sortie tone-mappée
 const composerRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
-  type: THREE.HalfFloatType, samples: 4,
+  type: THREE.HalfFloatType, samples: IS_IOS ? 0 : 4,
 });
 const composer = new EffectComposer(renderer, composerRT);
 composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -73,6 +78,11 @@ const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.55, 0.5, 0.97);
 composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
+let fxaaPass = null;
+if (IS_IOS) {
+  fxaaPass = new ShaderPass(FXAAShader);
+  composer.addPass(fxaaPass);
+}
 // grain de film + micro-saturation (le « polish » des sketches three.js)
 const grainPass = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
@@ -2817,6 +2827,7 @@ function updateEnemies(dt, t) {
 // ------------------------------------------------------------
 const clock = new THREE.Clock();
 let started = false;
+let sizeCheck = 0;
 applyMood();
 
 function tick() {
@@ -3101,6 +3112,16 @@ function tick() {
   camera.lookAt(target);
   started = true;
 
+  // auto-réparation : si le canvas et le viewport dévient (barre d'URL
+  // iOS, rotation…), on réapplique les tailles
+  if (++sizeCheck >= 60) {
+    sizeCheck = 0;
+    const sz = renderer.getSize(new THREE.Vector2());
+    if (Math.abs(sz.x - window.innerWidth) > 1 || Math.abs(sz.y - window.innerHeight) > 1) {
+      applySize();
+    }
+  }
+
   composer.render();
 }
 tick();
@@ -3167,6 +3188,19 @@ const pendingSave = loadSave();
 const continueBtn = document.getElementById('continueBtn');
 if (pendingSave) continueBtn.style.display = 'inline-block';
 
+// après une perte de contexte WebGL, on reprend la partie sans écran d'accueil
+let wasCtxLost = false;
+try {
+  wasCtxLost = sessionStorage.getItem('ctxlost') === '1';
+  sessionStorage.removeItem('ctxlost');
+} catch (e) { /* ignore */ }
+if (wasCtxLost && pendingSave) {
+  applySave(pendingSave);
+  const intro = document.getElementById('intro');
+  intro.classList.add('hide');
+  intro.style.display = 'none';
+}
+
 function closeIntro() {
   document.getElementById('intro').classList.add('hide');
   setTimeout(() => document.getElementById('intro').style.display = 'none', 700);
@@ -3188,16 +3222,36 @@ document.getElementById('replayBtn').addEventListener('click', () => {
   location.reload();
 });
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+function applySize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  bloomPass.setSize(window.innerWidth / 2, window.innerHeight / 2);
-});
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  bloomPass.setSize(w / 2, h / 2);
+  if (fxaaPass) {
+    const pr = renderer.getPixelRatio();
+    fxaaPass.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
+  }
+}
+applySize();
+window.addEventListener('resize', applySize);
+// Safari iOS : la barre d'URL redimensionne le viewport visuel sans
+// toujours déclencher resize — on écoute aussi visualViewport
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', applySize);
+}
 // iOS : re-layout après rotation
 window.addEventListener('orientationchange', () => {
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+  setTimeout(applySize, 300);
+});
+
+// Perte de contexte WebGL (pression mémoire iOS) : on recharge,
+// et la sauvegarde automatique reprend la partie
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  try { sessionStorage.setItem('ctxlost', '1'); } catch (err) { /* ignore */ }
+  setTimeout(() => location.reload(), 400);
 });
 
 // Accès debug (tests automatisés) — sans effet sur le jeu
