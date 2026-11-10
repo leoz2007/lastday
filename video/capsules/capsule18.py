@@ -177,7 +177,7 @@ def s5(c, t, S):
     chip(c, t, S.cue('en brouillon'), 'Brouillon', 90, 1230, DARK, WHITE, 34)
     arrow(c, t, mo, 90 + w1 + 20, 1260, 90 + w1 + 120, 1260, DARK, 6)
     chip(c, t, mo + 0.3, 'Automatique + contrôle', 90 + w1 + 140, 1230, RED, WHITE, 34)
-    rd = S.cue('redescend')
+    rd = S.cue('Si elle baisse')
     if t >= rd:
         x2 = 90 + w1 + 140 + chip_width('Automatique + contrôle', 34) / 2
         arrow(c, t, rd, x2, 1310, x2, 1370, RED, 5, 0)

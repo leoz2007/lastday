@@ -108,7 +108,7 @@ def s4(c, t, S):
     box(c, t, S.cue('on trie'), 90, 560, 260, 120, 'Retours', LIGHT, DARK, 34)
     cats = [('Réponse fausse', 'réponse fausse', 0.8), ('Ton inadapté', 'ton inadapté', 0.35),
             ('Document manquant', 'document manquant', 0.55)]
-    arrow(c, t, rt, 360, 620, 420, 620, DARK, 6, 18)
+    arrow(c, t, rt, 360, 620, 410, 620, DARK, 6, 18)
     for k, (s, kw, fr) in enumerate(cats):
         at = S.cue(kw)
         y = 545 + k * 60

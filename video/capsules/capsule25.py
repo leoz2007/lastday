@@ -117,21 +117,21 @@ def s3(c, t, S):
 def s4(c, t, S):
     header(c, t, S, 'Le vocabulaire', 'Lire la *licence*')
     a = S.cue('au sens strict')
-    cols = [('Poids ouverts', 600), ('Open source strict', 850)]
+    cols = [('Poids ouverts', 640), ('Open source strict', 870)]
     rows = [('Poids', 'Oui', 'Oui'), ('Code d\'entraînement', 'Pas toujours', 'Oui'),
             ('Données d\'entraînement', 'Pas toujours', 'Décrites')]
     card(c, t, S.cue('Attention au vocabulaire'), 90, 540, 900, 420, LIGHT, 36, 'up')
     if prog(t, S.cue('Attention au vocabulaire'), 0.5) > 0.4:
         for nm, cx in cols:
-            small(c, nm, cx, 610, 18, RED if cx == 850 and t >= a else DARK, align='center')
+            small(c, nm, cx, 610, 18, RED if cx == 870 and t >= a else DARK, align='center')
         dn = S.cue('ne sont pas toujours publiés')
         for k, (nm, v1, v2) in enumerate(rows):
             y = 690 + k * 95
             at = S.cue('Open weights') + 0.3 * k if k == 0 else dn + 0.3 * (k - 1)
-            reveal_plain(c, t, at, nm, 140, y + 12, 28, DARK)
-            chip(c, t, at + 0.1, v1, 600 - chip_width(v1, 24) / 2, y - 22, WHITE if k else PLL, DARK, 24)
+            reveal_plain(c, t, at, nm, 140, y + 12, 26, DARK)
+            chip(c, t, at + 0.1, v1, 640 - chip_width(v1, 24) / 2, y - 22, WHITE if k else PLL, DARK, 24)
             if t >= a:
-                chip(c, t, max(a, at) + 0.2, v2, 850 - chip_width(v2, 24) / 2, y - 22, PLL, DARK, 24)
+                chip(c, t, max(a, at) + 0.2, v2, 870 - chip_width(v2, 24) / 2, y - 22, PLL, DARK, 24)
     li = S.cue('certaines licences')
     card(c, t, li, 90, 1000, 900, 430, LIGHT, 36, 'up')
     if prog(t, li, 0.5) > 0.4:
