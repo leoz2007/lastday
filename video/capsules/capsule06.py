@@ -20,9 +20,9 @@ def s1(c, t, S):
     s = S.cue('Sans évaluation')
     for k in range(40):
         col, row = k % 10, k // 10
-        dot(c, t, s + k * 0.025, 110 + col * 96, 1100 + row * 80, 16, PL)
+        dot(c, t, s + k * 0.025, 110 + col * 96, 1080 + row * 75, 16, PL)
     if t >= s + 0.8:
-        chip(c, t, s + 0.8, 'Et tous les autres cas ?', 90, 1430, RED, WHITE, 34)
+        chip(c, t, s + 0.8, 'Et tous les autres cas ?', 90, 1360, RED, WHITE, 34)
 
 
 def s2(c, t, S):
