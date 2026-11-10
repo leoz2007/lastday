@@ -1,6 +1,9 @@
 # Capsules « GEN AI EN 2 MIN »
 
-Neuf capsules vidéo verticales (1080×1920, 30 fps), de 02 à 10, pour donner un vernis technique en IA générative à une PO fonctionnelle.
+Capsules vidéo verticales (1080×1920, 30 fps) pour donner un vernis technique en IA générative à une PO fonctionnelle :
+
+- saison 1 : capsules 02 à 10 (la capsule 01 existait déjà) ;
+- saison 2 : capsules 11 à 28. Dans chaque module, `SERIES = (11, 28)` et `SERIES_LABEL = 'Saison 2'`. Le brief de rédaction commun est dans `video/BRIEF_S2.md`.
 
 | Fichier | Contenu |
 |---|---|
@@ -19,6 +22,7 @@ python3 video/render.py 04            # rend out/capsule04_*.mp4 (et réécrit s
 python3 video/qa.py 04                # contrôles ffprobe + 5 images extraites du MP4 final
 python3 video/preview.py 04           # planche d'aperçu sans appel API (alignement factice)
 python3 video/render.py 04 --md       # compte les mots du script
+python3 video/preview.py 04 0.55      # aperçu au milieu de chaque scène
 ```
 
 - **La voix n'est jamais régénérée** si `video/audio/capsuleNN.mp3` et `.json` existent déjà. Le rendu ne coûte donc aucun crédit. Pour une nouvelle voix (par exemple après une modification du texte), supprimez ces deux fichiers et lancez le rendu avec `ELEVENLABS_API_KEY` dans l'environnement. Si le texte ne correspond plus à l'audio en cache, le moteur le signale et garde l'audio existant.
@@ -35,3 +39,5 @@ python3 video/render.py 04 --md       # compte les mots du script
 - Sur les images extraites, le rouge mesuré est d'environ (245, 71, 93) pour (248, 72, 94) attendu. L'écart vient de la conversion en yuv420p.
 - Les exemples à l'écran (découpage en tokens, tarifs, scores, numéros de page) sont illustratifs et signalés comme tels quand c'est utile. Ce ne sont pas des mesures.
 - Pour le RGPD et l'AI Act, les scripts restent sur des principes généraux. Ils ne remplacent pas un avis juridique.
+- Saison 2 : les scènes ont été rédigées par plusieurs agents à partir du même brief, puis relues une à une sur planche d'aperçu avant la génération des voix. La lecture humaine des formulations reste recommandée.
+- Les exemples à l'écran de la saison 2 (montants, dates, « art. 3 », noms fictifs pseudonymisés dans la capsule 22) sont illustratifs.
