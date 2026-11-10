@@ -891,11 +891,16 @@ def ending(c, t, S, cap, cards, next_title=None, next_label='Prochaine capsule')
     # la série : 10 pastilles
     at = S.cue(cap.NEXT_CUE) if cap.NEXT_CUE else S.t0 + 1.0
     yy = max(y + 70, 1180)
-    small(c, 'La série', 90, yy, 24, WHITE)
-    for k in range(10):
-        x = 90 + 22 + k * 88
-        col = WHITE if k + 1 <= cap.NUM else PL
-        dot(c, t, a + 0.3 + k * 0.05, x, yy + 50, 22 if k + 1 == cap.NUM else 16, col)
+    s0, s1 = getattr(cap, 'SERIES', (1, 10))
+    n = s1 - s0 + 1
+    step = min(88, 856 / (n - 1))
+    r_on, r_off = (22, 16) if step >= 70 else (18, 12)
+    small(c, getattr(cap, 'SERIES_LABEL', 'La série'), 90, yy, 24, WHITE)
+    for k in range(n):
+        x = 90 + 22 + k * step
+        num = s0 + k
+        col = WHITE if num <= cap.NUM else PL
+        dot(c, t, a + 0.3 + k * 0.04, x, yy + 50, r_on if num == cap.NUM else r_off, col)
     if next_title:
         bw = 900
         box(c, t, at, 90, yy + 150, bw, 150, next_title, WHITE, RED, 40, 'Medium', 36, 'up')
