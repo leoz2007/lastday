@@ -4,6 +4,7 @@ Capsules vidéo verticales (1080×1920, 30 fps) pour donner un vernis technique 
 
 - saison 1 : capsules 02 à 10 (la capsule 01 existait déjà) ;
 - saison 2 : capsules 11 à 28. Dans chaque module, `SERIES = (11, 28)` et `SERIES_LABEL = 'Saison 2'`. Le brief de rédaction commun est dans `video/BRIEF_S2.md`.
+- saison 3 : capsules 29 à 38, sujets plus techniques (GraphRAG, inférence, RAG avancé, attention, entraînement, LoRA, données synthétiques, IA sur site, agents en production). `SERIES = (29, 38)`, brief dans `video/BRIEF_S3.md`.
 
 | Fichier | Contenu |
 |---|---|
