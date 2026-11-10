@@ -1,18 +1,18 @@
 # Capsule 19 · Gérer l'échec
 
-Texte de la voix off (274 mots).
+Texte de la voix off (284 mots).
 
 ## Scène 1 · Accroche
 
-Votre assistant va échouer. Pas peut-être : forcément. La vraie question, c'est ce que vit l'utilisateur à ce moment-là, et comment il s'en sort.
+Votre assistant va échouer. Pas peut-être : forcément, un jour ou l'autre. La vraie question, c'est ce que vit l'utilisateur à ce moment-là, et comment il s'en sort.
 
 ## Scène 2 · Les quatre cas d'échec
 
-Il y a quatre grands cas. Le modèle ne sait pas. Il se trompe, avec aplomb. Il refuse de répondre. Ou l'API, le service qui fait tourner le modèle, ne répond plus du tout. Chaque cas mérite sa propre réponse, pas un message d'erreur générique.
+Il y a quatre grands cas. Le modèle ne sait pas. Il se trompe, avec aplomb. Il refuse de répondre, parfois à tort. Ou l'API, le service qui fait tourner le modèle, ne répond plus du tout. Chaque cas mérite sa propre réponse, pas un message d'erreur générique.
 
 ## Scène 3 · Messages honnêtes, repli et escalade
 
-D'abord, des messages honnêtes. « Je n'ai pas trouvé cette information dans vos documents » vaut mieux qu'une réponse inventée. Ensuite, un repli : reformuler, consulter l'aide, ou parler à un conseiller. Et l'escalade vers un humain transmet la conversation, pour ne pas tout réexpliquer.
+D'abord, des messages honnêtes. « Je n'ai pas trouvé cette information dans vos documents » vaut toujours mieux qu'une réponse inventée. Ensuite, un repli : reformuler, consulter l'aide, ou parler à un conseiller. Et l'escalade vers un humain transmet la conversation, pour ne pas tout réexpliquer.
 
 ## Scène 4 · Tentatives limitées et mode dégradé
 
@@ -20,7 +20,7 @@ Quand l'API ne répond pas, on réessaie, mais avec une limite : par exemple tro
 
 ## Scène 5 · Ce que ça change côté produit
 
-Côté produit, l'échec se conçoit comme un parcours, avec ses écrans et ses textes. Dessinez-le dans vos maquettes, au même titre que le cas nominal, celui où tout va bien. Puis suivez-le : taux d'escalade, abandons, réponses de repli.
+Côté produit, l'échec se conçoit comme un parcours, avec ses écrans et ses textes. Dessinez-le dans vos maquettes, au même titre que le cas nominal, celui où tout va bien. Puis suivez-le en production : taux d'escalade, abandons, réponses de repli.
 
 ## Scène 6 · Questions à poser au cadrage
 

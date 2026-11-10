@@ -19,16 +19,15 @@ def s1(c, t, S):
     arrow(c, t, a + 0.2, 180, 1000, 520, 1000, WHITE, 8, 0)
     f = S.cue('forcément')
     icon(c, t, f, 'cross', 600, 1000, 70, RED)
-    rrect_p = prog(t, a + 0.6, 0.3)
-    if rrect_p > 0:
+    if prog(t, a + 0.6, 0.3) > 0:
         dot(c, t, a + 0.6, 930, 1000, 30, PL)
         small(c, 'Réponse', 930, 940, 22, WHITE, align='center')
     vi = S.cue('ce que vit')
     icon(c, t, vi, 'user', 150, 1170, 70, WHITE)
-    so = S.cue("s'en sort")
-    arrow(c, t, so, 520, 1015, 600, 1250, RED, 8, 0, 0.3)
-    arrow(c, t, so + 0.3, 600, 1250, 840, 1250, RED, 8, 0, 0.3)
-    arrow(c, t, so + 0.6, 840, 1250, 920, 1040, RED, 8, 24, 0.3)
+    so = S.cue('et comment')
+    arrow(c, t, so, 520, 1015, 600, 1250, RED, 8, 0, 0.25)
+    arrow(c, t, so + 0.25, 600, 1250, 840, 1250, RED, 8, 0, 0.25)
+    arrow(c, t, so + 0.5, 840, 1250, 920, 1040, RED, 8, 24, 0.25)
     if t >= so + 0.4:
         chip(c, t, so + 0.4, 'Un parcours prévu', 720, 1290, RED, WHITE, 30, align='center')
 
@@ -45,7 +44,7 @@ def s2(c, t, S):
         if prog(t, at, 0.5) > 0.4:
             icon(c, t, at + 0.1, ic, x + 220, y + 90, 64, RED)
             plain(c, s, x + 220, y + 195, 36, DARK, 'Medium', 'center')
-    g = S.cue('générique')
+    g = S.cue('Chaque cas')
     card(c, t, g, 90, 1130, 900, 170, LIGHT, 32, 'up')
     if prog(t, g, 0.5) > 0.4:
         plain(c, 'Une erreur est survenue.', 540, 1230, 38, DARK, 'Medium', 'center')
@@ -102,8 +101,8 @@ def s4(c, t, S):
             small(c, f'Essai {k + 1}', x, 785, 20, DARK, align='center')
     sp = S.cue('espacées')
     if t >= sp:
-        icon(c, t, sp, 'clock', 515, 640, 40, RED)
-        small(c, 'Attente plus longue', 515, 610, 18, RED, align='center')
+        icon(c, t, sp, 'clock', 515, 665, 40, RED)
+        small(c, 'Attente plus longue', 515, 752, 18, RED, align='center')
     ad = S.cue('Au-delà')
     arrow(c, t, ad, 900, 740, 900, 880, RED, 6)
     box(c, t, ad + 0.2, 90, 890, 900, 120, 'Mode dégradé', RED, WHITE, 40, 'Medium', 32, 'up')
@@ -130,7 +129,7 @@ def s5(c, t, S):
     arrow(c, t, no, 350, 710, 730, 630, DARK, 6, 18)
     box(c, t, no + 0.2, 740, 560, 250, 120, 'Réponse', LIGHT, DARK, 32)
     if t >= no + 0.3:
-        small(c, 'Cas nominal', 545, 630, 20, DARK, align='center')
+        small(c, 'Cas nominal', 545, 605, 20, DARK, align='center')
         small(c, 'Échec', 300, 900, 20, RED, align='center')
     su = S.cue('suivez-le')
     card(c, t, su, 90, 1030, 900, 380, LIGHT, 36, 'up')
@@ -162,15 +161,15 @@ def s7(c, t, S):
 
 SCENES = [
     dict(kind='open', draw=s1, text=(
-        "Votre assistant va échouer. Pas peut-être : forcément. "
+        "Votre assistant va échouer. Pas peut-être : forcément, un jour ou l'autre. "
         "La vraie question, c'est ce que vit l'utilisateur à ce moment-là, et comment il s'en sort.")),
     dict(kind='content', draw=s2, name="Les quatre cas d'échec", text=(
-        "Il y a quatre grands cas. Le modèle ne sait pas. Il se trompe, avec aplomb. Il refuse de répondre. "
+        "Il y a quatre grands cas. Le modèle ne sait pas. Il se trompe, avec aplomb. Il refuse de répondre, parfois à tort. "
         "Ou l'API, le service qui fait tourner le modèle, ne répond plus du tout. "
         "Chaque cas mérite sa propre réponse, pas un message d'erreur générique.")),
     dict(kind='content', draw=s3, name='Messages honnêtes, repli et escalade', text=(
         "D'abord, des messages honnêtes. « Je n'ai pas trouvé cette information dans vos documents » "
-        "vaut mieux qu'une réponse inventée. "
+        "vaut toujours mieux qu'une réponse inventée. "
         "Ensuite, un repli : reformuler, consulter l'aide, ou parler à un conseiller. "
         "Et l'escalade vers un humain transmet la conversation, pour ne pas tout réexpliquer.")),
     dict(kind='content', draw=s4, name='Tentatives limitées et mode dégradé', text=(
@@ -181,7 +180,7 @@ SCENES = [
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, l'échec se conçoit comme un parcours, avec ses écrans et ses textes. "
         "Dessinez-le dans vos maquettes, au même titre que le cas nominal, celui où tout va bien. "
-        "Puis suivez-le : taux d'escalade, abandons, réponses de repli.")),
+        "Puis suivez-le en production : taux d'escalade, abandons, réponses de repli.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Que dit l'assistant quand il ne sait pas ? "
         "Vers qui escalade-t-on, et avec quel contexte ? "
