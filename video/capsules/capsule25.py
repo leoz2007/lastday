@@ -54,7 +54,8 @@ def s2(c, t, S):
     pros = [('Contrôle', 'le contrôle'), ('Données chez vous', 'de vos données'),
             ('Personnalisation', 'fine-tuning')]
     y = 820
-    small(c, 'Atouts', 90, y, 22, DARK) if t >= S.cue('le contrôle') else None
+    if t >= S.cue('le contrôle'):
+        small(c, 'Atouts', 90, y, 22, DARK)
     x = 90
     for k, (s, kw) in enumerate(pros):
         at = S.cue(kw)
@@ -80,7 +81,7 @@ def s2(c, t, S):
 def s3(c, t, S):
     header(c, t, S, 'Propriétaire', 'Le modèle *via une API*')
     a = S.cue('via une API')
-    frontier(c, 560, 560, 960, PL)
+    frontier(c, 560, 560, 990, PL)
     if t >= a:
         small(c, 'Chez vous', 320, 580, 20, DARK, align='center')
         small(c, 'Fournisseur', 800, 580, 20, DARK, align='center')
@@ -99,7 +100,7 @@ def s3(c, t, S):
     if t >= ds:
         u = ease(prog(t, ds, 1.2))
         x = lerp(200, 760, u)
-        chip(c, t, ds, 'Données', x - 80, 880, RED, WHITE, 28)
+        chip(c, t, ds, 'Données', x - 80, 925, RED, WHITE, 28)
     dp = S.cue('vous dépendez')
     card(c, t, dp, 90, 1010, 900, 420, LIGHT, 36, 'up')
     if prog(t, dp, 0.5) > 0.4:
@@ -116,21 +117,21 @@ def s3(c, t, S):
 def s4(c, t, S):
     header(c, t, S, 'Le vocabulaire', 'Lire la *licence*')
     a = S.cue('au sens strict')
-    cols = [('Poids ouverts', 690), ('Open source strict', 870)]
+    cols = [('Poids ouverts', 600), ('Open source strict', 850)]
     rows = [('Poids', 'Oui', 'Oui'), ('Code d\'entraînement', 'Pas toujours', 'Oui'),
             ('Données d\'entraînement', 'Pas toujours', 'Décrites')]
     card(c, t, S.cue('Attention au vocabulaire'), 90, 540, 900, 420, LIGHT, 36, 'up')
     if prog(t, S.cue('Attention au vocabulaire'), 0.5) > 0.4:
         for nm, cx in cols:
-            small(c, nm, cx, 610, 18, RED if cx == 870 and t >= a else DARK, align='center')
+            small(c, nm, cx, 610, 18, RED if cx == 850 and t >= a else DARK, align='center')
         dn = S.cue('ne sont pas toujours publiés')
         for k, (nm, v1, v2) in enumerate(rows):
             y = 690 + k * 95
             at = S.cue('Open weights') + 0.3 * k if k == 0 else dn + 0.3 * (k - 1)
             reveal_plain(c, t, at, nm, 140, y + 12, 28, DARK)
-            chip(c, t, at + 0.1, v1, 690 - chip_width(v1, 24) / 2, y - 22, WHITE if k else PLL, DARK, 24)
+            chip(c, t, at + 0.1, v1, 600 - chip_width(v1, 24) / 2, y - 22, WHITE if k else PLL, DARK, 24)
             if t >= a:
-                chip(c, t, max(a, at) + 0.2, v2, 870 - chip_width(v2, 24) / 2, y - 22, PLL, DARK, 24)
+                chip(c, t, max(a, at) + 0.2, v2, 850 - chip_width(v2, 24) / 2, y - 22, PLL, DARK, 24)
     li = S.cue('certaines licences')
     card(c, t, li, 90, 1000, 900, 430, LIGHT, 36, 'up')
     if prog(t, li, 0.5) > 0.4:
@@ -143,7 +144,8 @@ def s4(c, t, S):
         for k, (s, kw) in enumerate(cl):
             at = S.cue(kw)
             y = 1240 + k * 70
-            rrect(c, 140, y, 10, 50, 5, RED) if t >= at else None
+            if t >= at:
+                rrect(c, 140, y, 10, 50, 5, RED)
             reveal_plain(c, t, at, s, 170, y + 38, 30, RED, 'Medium')
         jr = S.cue('votre juridique')
         chip(c, t, jr, 'Juridique', 990 - 40 - chip_width('Juridique', 26), 1070, RED, WHITE, 26)

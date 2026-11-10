@@ -151,7 +151,7 @@ def s5(c, t, S):
             reveal_plain(c, t, at + 0.2, s, 140, y + 12, 34, DARK)
             dot(c, t, at + 0.4, 920, y, 26, RED)
             icon(c, t, at + 0.5, 'check', 920, y, 28, WHITE)
-    outs = [('cross', "S'arrêter", "on s'arrête"), ('gear', 'Réessayer', 'on réessaie'), ('user', 'Un humain', 'à un humain')]
+    outs = [('cross', "S'arrêter", "on s'arrête"), ('gear', 'Réessayer', 'on réessaie'), ('user', 'Un humain', 'on passe la main')]
     dt = S.cue('En cas de doute')
     if t >= dt:
         small(c, 'En cas de doute', 90, 1080, 22, DARK)

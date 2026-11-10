@@ -1,18 +1,18 @@
 # Capsule 18 · Copilote ou autopilote
 
-Texte de la voix off (266 mots).
+Texte de la voix off (282 mots).
 
 ## Scène 1 · Accroche
 
-Automatiser, ce n'est pas tout ou rien. Entre l'humain qui fait tout et la machine qui fait tout, il existe plusieurs crans. Et c'est à vous de choisir le bon, action par action.
+Automatiser, ce n'est pas tout ou rien. Entre l'humain qui fait tout et la machine qui fait tout, il existe plusieurs crans. Et c'est à vous de choisir le bon cran, action par action.
 
 ## Scène 2 · Suggestion et brouillon
 
-Premier cran : la suggestion. L'assistant propose, l'humain accepte d'un clic, ou ignore. Par exemple, une catégorie suggérée sur un ticket. Deuxième cran : le brouillon. L'assistant rédige une réponse complète, et l'humain la relit, la corrige, puis l'envoie.
+Premier cran : la suggestion. L'assistant propose, l'humain accepte d'un clic, ou ignore. Par exemple, une catégorie suggérée sur un ticket. Deuxième cran : le brouillon. L'assistant rédige une réponse complète, et l'humain la relit, la corrige, puis l'envoie. L'humain reste maître de chaque envoi.
 
 ## Scène 3 · Action automatique et action autonome
 
-Troisième cran : l'action automatique, avec un contrôle a posteriori. Les tickets sont classés seuls, et chaque semaine, quelqu'un vérifie un échantillon. Dernier cran : l'action autonome. L'assistant agit sans relecture, par exemple pour envoyer un rappel de rendez-vous.
+Troisième cran : l'action automatique, avec un contrôle a posteriori. Les tickets sont classés seuls, sans attendre, et chaque semaine, quelqu'un vérifie un échantillon. Dernier cran : l'action autonome. L'assistant agit sans relecture, par exemple pour envoyer un rappel de rendez-vous, une action peu risquée.
 
 ## Scène 4 · Choisir selon le risque et la réversibilité
 
@@ -28,4 +28,4 @@ Au cadrage, posez trois questions. Que coûte une erreur, et peut-on l'annuler ?
 
 ## Scène 7 · À retenir
 
-À retenir : choisissez le niveau d'automatisation selon le risque et la réversibilité. Puis faites-le évoluer avec la confiance mesurée. Prochaine capsule : gérer l'échec, quand le modèle ou le service ne suit plus.
+À retenir : choisissez le niveau d'automatisation selon le risque et la réversibilité. Puis faites-le évoluer avec la confiance mesurée. Prochaine capsule : gérer l'échec, quand le modèle se trompe ou que le service ne suit plus.

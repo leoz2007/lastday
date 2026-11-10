@@ -97,7 +97,7 @@ def s2(c, t, S):
     y = 560 + 3 * 120
     arrow(c, t, tr - 0.1, 520, y + 50, 560, y + 50, DARK, 5, 14)
     chip(c, t, tr, 'Texte', 570, y + 20, PLL, DARK, 30)
-    arrow(c, t, tr + 0.3, 690, y + 50, 750, 930, DARK, 5, 14)
+    arrow(c, t, tr + 0.3, 580 + chip_width('Texte', 30), y + 50, 750, 930, DARK, 5, 14)
     # l'image découpée en morceaux = tokens
     dc = S.cue('découpée')
     card(c, t, dc - 0.2, 90, 1080, 900, 360, LIGHT, 36, 'up')
@@ -209,7 +209,7 @@ def s5(c, t, S):
         if prog(t, at, 0.5) > 0.4:
             icon(c, t, at + 0.1, 'check', x + (w + 40) / 2, 1180, 50, RED)
             reveal_plain(c, t, at + 0.2, s, x + (w + 40) / 2, 1285, 34, DARK, 'Medium', 'center')
-        x += w + 70
+        x += w + 64
 
 
 def s6(c, t, S):

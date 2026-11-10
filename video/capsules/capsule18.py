@@ -23,25 +23,25 @@ def s1(c, t, S):
     opening(c, t, S, CAP, "L'automatisation a des *crans*.")
     a = S.cue("l'humain qui fait tout")
     b = S.cue('la machine qui fait tout')
-    icon(c, t, a, 'user', 150, 930, 80, WHITE)
+    icon(c, t, a, 'user', 135, 930, 80, WHITE)
     if t >= a:
-        small(c, 'Humain', 150, 1050, 24, WHITE, align='center')
-    icon(c, t, b, 'bolt', 930, 930, 80, WHITE)
+        small(c, 'Humain', 135, 1050, 24, WHITE, align='center')
+    icon(c, t, b, 'bolt', 945, 930, 80, WHITE)
     if t >= b:
-        small(c, 'Machine', 930, 1050, 24, WHITE, align='center')
+        small(c, 'Machine', 945, 1050, 24, WHITE, align='center')
     p = ease(prog(t, a + 0.2, 1.0))
     if p > 0:
-        rrect(c, 150, 1142, 780 * p, 16, 8, PL)
+        rrect(c, 135, 1142, 810 * p, 16, 8, PL)
     cr = S.cue('plusieurs crans')
     bon = S.cue('choisir le bon')
     for k, s in enumerate(LEVELS):
-        x = 150 + (k + 1) * 780 / 5
+        x = 270 + k * 180
         on = t >= bon and k == 1
         dot(c, t, cr + k * 0.2, x, 1150, 38 if on else 26, RED if on else WHITE)
         if t >= cr + k * 0.2:
-            small(c, s, x, 1240, 20, RED if on else WHITE, align='center')
+            small(c, s, x, 1240, 18, RED if on else WHITE, align='center')
     if t >= bon:
-        chip(c, t, bon + 0.2, 'Action par action', 150 + 2 * 780 / 5, 1300, RED, WHITE, 32, align='center')
+        chip(c, t, bon + 0.2, 'Action par action', 450, 1300, RED, WHITE, 32, align='center')
 
 
 def s2(c, t, S):
@@ -67,12 +67,12 @@ def s2(c, t, S):
     rd = S.cue('rédige')
     co = S.cue('la corrige')
     cols = [PL, PL, RED if t >= co else PL, PL]
-    text_lines(c, t, rd, 140, 1075, [780, 720, 760, 500], cols, 24, 52)
+    text_lines(c, t, rd, 140, 1075, [700, 660, 690, 480], cols, 24, 52)
     if t >= co:
         icon(c, t, co, 'user', 940, 1190, 44, RED)
     rl = S.cue('la relit')
     icon(c, t, rl, 'eye', 940, 1090, 50, DARK)
-    en = S.cue("l'envoie")
+    en = S.cue("puis l'envoie")
     chip(c, t, en, 'Envoyer', 140, 1310, RED, WHITE, 34)
     if t >= en + 0.2:
         reveal_plain(c, t, en + 0.2, "Validé par l'humain", 360, 1352, 32, DARK)
@@ -171,7 +171,7 @@ def s5(c, t, S):
     if t >= el:
         yy = base - hmax * 0.7
         rrect(c, 140, yy - 2, 820, 4, 2, DARK)
-        small(c, 'Seuil', 955, yy - 14, 18, DARK, align='right')
+        small(c, 'Seuil', 140, yy - 14, 18, DARK)
     w1 = chip_width('Brouillon', 34)
     mo = S.cue("monte d'un cran")
     chip(c, t, S.cue('en brouillon'), 'Brouillon', 90, 1230, DARK, WHITE, 34)
@@ -204,17 +204,17 @@ SCENES = [
     dict(kind='open', draw=s1, text=(
         "Automatiser, ce n'est pas tout ou rien. "
         "Entre l'humain qui fait tout et la machine qui fait tout, il existe plusieurs crans. "
-        "Et c'est à vous de choisir le bon, action par action.")),
+        "Et c'est à vous de choisir le bon cran, action par action.")),
     dict(kind='content', draw=s2, name='Suggestion et brouillon', text=(
         "Premier cran : la suggestion. L'assistant propose, l'humain accepte d'un clic, ou ignore. "
         "Par exemple, une catégorie suggérée sur un ticket. "
         "Deuxième cran : le brouillon. L'assistant rédige une réponse complète, "
-        "et l'humain la relit, la corrige, puis l'envoie.")),
+        "et l'humain la relit, la corrige, puis l'envoie. L'humain reste maître de chaque envoi.")),
     dict(kind='content', draw=s3, name='Action automatique et action autonome', text=(
         "Troisième cran : l'action automatique, avec un contrôle a posteriori. "
-        "Les tickets sont classés seuls, et chaque semaine, quelqu'un vérifie un échantillon. "
+        "Les tickets sont classés seuls, sans attendre, et chaque semaine, quelqu'un vérifie un échantillon. "
         "Dernier cran : l'action autonome. L'assistant agit sans relecture, "
-        "par exemple pour envoyer un rappel de rendez-vous.")),
+        "par exemple pour envoyer un rappel de rendez-vous, une action peu risquée.")),
     dict(kind='content', draw=s4, name='Choisir selon le risque et la réversibilité', text=(
         "Comment choisir ? Croisez deux questions. Que coûte une erreur ? Et peut-on l'annuler facilement ? "
         "Classer un ticket : peu de risque, et on corrige en un clic, donc on peut automatiser. "
@@ -231,7 +231,7 @@ SCENES = [
     dict(kind='end', draw=s7, text=(
         "À retenir : choisissez le niveau d'automatisation selon le risque et la réversibilité. "
         "Puis faites-le évoluer avec la confiance mesurée. "
-        "Prochaine capsule : gérer l'échec, quand le modèle ou le service ne suit plus.")),
+        "Prochaine capsule : gérer l'échec, quand le modèle se trompe ou que le service ne suit plus.")),
 ]
 
 import sys as _sys  # noqa: E402
