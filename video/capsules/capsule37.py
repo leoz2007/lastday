@@ -182,7 +182,7 @@ def s5(c, t, S):
         icon(c, t, b + 0.5, 'gear', 410, 790, 50, WHITE)
         plain(c, 'Aiguillage', 460, 803, 32, WHITE, 'Medium')
     if t >= ag:
-        small(c, 'Une règle, demande par demande', 540, 885, 20, RED, align='center')
+        small(c, 'Une règle par demande', 540, 885, 20, RED, align='center')
     lo = S.cue('petit modèle local')
     arrow(c, t, lo, 340, 790, 300, 935, DARK, 6, 18)
     card(c, t, lo + 0.2, 90, 945, 430, 470, LIGHT, 32, 'up')

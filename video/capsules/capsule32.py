@@ -95,7 +95,6 @@ def s3(c, t, S):
         chip(c, t, rs, '« Résilier »', 590, 715, WHITE, DARK, 28)
         if t >= rs:
             plain(c, '=', 870, 715, 56, RED, 'Medium', 'center')
-            small(c, 'Même sens', 950, 600, 18, RED, align='right')
     cb = S.cue('On combine')
     box(c, t, cb, 90, 830, 900, 100, 'Recherche hybride', RED, WHITE, 34)
     rr = S.cue('le reranking')
@@ -167,8 +166,8 @@ def s5(c, t, S):
         card(c, t, at, x, 540, 440, 380, LIGHT, 32, 'up')
         if prog(t, at, 0.5) > 0.4:
             small(c, f'{k + 1} · {nm}', x + 40, 600, 22, RED if k == 0 else DARK)
-            icon(c, t, at + 0.1, 'search' if k == 0 else 'chat', x + 220, 700, 80, DARK)
-            text_block(c, t, at + 0.2, q, x + 40, 810, 30, 'Medium', DARK, RED, maxw=360, max_lines=2)
+            icon(c, t, at + 0.1, 'search' if k == 0 else 'chat', x + 220, 690, 76, DARK)
+            text_block(c, t, at + 0.2, q, x + 40, 795, 30, 'Medium', DARK, RED, maxw=360, max_lines=2)
             bar(c, t, at + 0.4, x + 40, 870, 360, 26, f, col, WHITE, 0.6)
     if t >= S.cue("D'abord") + 0.6:
         small(c, 'Scores illustratifs', 90, 970, 20, DARK)

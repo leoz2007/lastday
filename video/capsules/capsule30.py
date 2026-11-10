@@ -106,11 +106,11 @@ def s3(c, t, S):
     out = ['Le', 'chiffre', "d'affaires", 'progresse']
     ats = [p, S.cue('puis le suivant'), S.cue('puis le suivant', 2), S.cue('puis le suivant', 2) + 0.5]
     token_row(c, t, ats, out, 90, 545, RED, WHITE, 34, 16)
-    dp = S.cue('dépend de tous')
+    dp = S.cue('dépend de ceux')
     if t >= dp:
         reveal_plain(c, t, dp, 'Chacun dépend des précédents', 90, 690, 30, DARK, 'Medium')
     ck = S.cue('garde en mémoire')
-    card(c, t, ck, 90, 740, 900, 690, LIGHT, 36, 'up')
+    card(c, t, ck, 90, 740, 900, 620, LIGHT, 36, 'up')
     if prog(t, ck, 0.5) > 0.4:
         small(c, 'Sans cache', 140, 805, 20, DARK)
         small(c, 'Avec cache KV', 590, 805, 20, RED)
@@ -143,7 +143,7 @@ def s4(c, t, S):
         db = S.cue('le débit')
         if t >= db:
             small(c, 'Débit : tokens par seconde', 940, 770, 18, RED, align='right')
-    ex = [('Résumer un rapport de 100 pages', 'cent pages', 620, 3, "Attente au début", 'au début'),
+    ex = [('Résumer 100 pages', 'cent pages', 620, 3, "Attente au début", 'au début'),
           ('Rédiger un long courrier', 'long courrier', 100, 16, "Attente dans l'écriture", "dans l'écriture")]
     for k, (s, kw, rw, n, lab, kw2) in enumerate(ex):
         at = S.cue(kw)
@@ -201,7 +201,7 @@ def s5(c, t, S):
 def s6(c, t, S):
     questions(c, t, S, 'Trois *questions* à poser', [
         ("Quel *délai avant le premier mot* l'utilisateur accepte-t-il ?", 'Quel délai'),
-        ('Les réponses doivent-elles vraiment être *longues* ?', 'Les réponses'),
+        ('Les réponses doivent-elles être *longues* ?', 'Les réponses'),
         ("La réponse peut-elle s'afficher *au fil de l'eau* ?", 'Et la réponse'),
     ])
 
@@ -216,31 +216,30 @@ def s7(c, t, S):
 SCENES = [
     dict(kind='open', draw=s1, text=(
         "Un modèle ne lit pas et n'écrit pas au même rythme. "
-        "Il lit tout votre texte d'un coup, puis écrit un morceau après l'autre. "
-        "Ce détail explique les délais, et une partie de la facture.")),
+        "Il lit tout votre texte d'un coup, puis écrit morceau par morceau. "
+        "Ce détail explique les délais, et la facture.")),
     dict(kind='content', draw=s2, name='Les tokens et la lecture du prompt', text=(
         "D'abord, le texte est découpé en tokens, des morceaux de mots. "
-        "Vient ensuite la lecture du prompt, qu'on appelle prefill, ou préremplissage. "
+        "Vient ensuite la lecture du prompt, le prefill, ou préremplissage. "
         "Le modèle traite toute l'entrée d'un coup, en parallèle, comme un lecteur qui verrait la page entière. "
-        "C'est efficace, mais une très longue entrée prend quand même du temps.")),
+        "Mais une très longue entrée prend quand même du temps.")),
     dict(kind='content', draw=s3, name='Le décodage et le cache KV', text=(
-        "Puis vient la génération, qu'on appelle décodage. "
+        "Puis vient la génération, ou décodage. "
         "Le modèle produit un token, puis le suivant, puis le suivant. "
-        "Chacun dépend de tous ceux d'avant : impossible de les calculer en parallèle. "
-        "Pour aller plus vite, le modèle garde en mémoire ses calculs sur le texte déjà traité : "
-        "c'est le cache KV. Sans lui, chaque nouveau token recalculerait tout depuis le début.")),
+        "Chacun dépend de ceux d'avant : impossible de les calculer en parallèle. "
+        "Pour aller plus vite, il garde en mémoire ses calculs déjà faits : c'est le cache KV. "
+        "Sans lui, chaque token recalculerait tout.")),
     dict(kind='content', draw=s4, name='Deux mesures : premier token et débit', text=(
-        "D'où deux mesures. D'abord, le délai avant le premier token. Ensuite, le débit, en tokens par seconde. "
-        "Une longue entrée allonge surtout le délai initial : pour résumer un rapport de cent pages, l'attente est au début. "
+        "D'où deux mesures : le délai avant le premier token, puis le débit, en tokens par seconde. "
+        "Une longue entrée allonge surtout le délai initial : pour résumer cent pages, l'attente est au début. "
         "Une longue sortie allonge le temps total : pour un long courrier, l'attente est dans l'écriture.")),
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, la sortie est en général facturée plus cher que l'entrée. "
         "La raison : l'entrée est lue en bloc, alors que chaque token de sortie demande sa propre étape de calcul. "
-        "Deux réflexes : afficher la réponse au fil de l'eau, pour qu'on la lise pendant l'écriture, "
-        "et demander des réponses courtes quand c'est possible.")),
+        "Deux réflexes : afficher la réponse au fil de l'eau, et demander des réponses courtes.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Quel délai avant le premier mot l'utilisateur accepte-t-il ? "
-        "Les réponses doivent-elles vraiment être longues ? "
+        "Les réponses doivent-elles être longues ? "
         "Et la réponse peut-elle s'afficher au fil de l'eau ?")),
     dict(kind='end', draw=s7, text=(
         "À retenir : le modèle lit l'entrée d'un coup, puis écrit token par token. "

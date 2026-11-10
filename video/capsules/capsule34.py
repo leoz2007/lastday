@@ -88,7 +88,7 @@ def s3(c, t, S):
     box(c, t, q, 90, 900, 900, 100, 'Demande : « Résume ce mail »', DARK, WHITE, 32)
     pr = S.cue('prolonger le texte')
     rows = [('Avant', pr, 'cross', DARK, [600, 520, 640]),
-            ('Après', S.cue('devient un assistant'), 'check', RED, [480, 300])]
+            ('Après', S.cue('à répondre'), 'check', RED, [480, 300])]
     for k, (nm, at, ic, col, ws) in enumerate(rows):
         x = 90 + k * 460
         card(c, t, at, x, 1050, 440, 380, LIGHT, 32, 'up')
@@ -172,22 +172,22 @@ SCENES = [
         "Première étape : le préentraînement. Le modèle lit d'immenses volumes de textes, "
         "et s'entraîne à prédire le token suivant, le petit morceau de texte qui vient ensuite. "
         "Il en tire la langue, des faits, des façons de raisonner. "
-        "Mais ses connaissances s'arrêtent à une date de coupure.")),
+        "Mais ses connaissances s'arrêtent à une date de coupure. Ce qui s'est passé ensuite, il ne le sait pas.")),
     dict(kind='content', draw=s3, name="L'ajustement aux instructions", text=(
         "Deuxième étape : l'ajustement aux instructions. On lui montre des exemples de questions, "
         "avec de bonnes réponses rédigées. Il apprend à suivre une consigne, "
         "à répondre au lieu de simplement prolonger le texte. C'est là qu'il devient un assistant.")),
     dict(kind='content', draw=s4, name='Les préférences humaines', text=(
         "Troisième étape : apprendre des préférences humaines. Des personnes comparent deux réponses à la même question, "
-        "et choisissent la meilleure. Au fil des comparaisons, le modèle apprend à préférer "
+        "et choisissent la meilleure. Au fil de très nombreuses comparaisons, le modèle apprend à préférer "
         "les réponses jugées utiles, claires et prudentes.")),
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, trois conséquences. Ses connaissances sont datées : pour l'actualité, fournissez-lui les documents. "
-        "Il hérite des biais de ses données : testez-le sur vos publics. "
+        "Il hérite des biais de ses données : testez-le sur vos propres publics. "
         "Et son comportement peut changer d'une version à l'autre : relancez vos evals à chaque changement de modèle.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Votre usage dépend-il d'informations récentes ? "
-        "Quels biais pourraient toucher vos utilisateurs ? "
+        "Quels biais hérités des données pourraient toucher vos utilisateurs ? "
         "Et qui relance les evals quand le modèle change ?")),
     dict(kind='end', draw=s7, text=(
         "À retenir : un modèle apprend en trois temps. Prédire la suite, suivre des instructions, "
