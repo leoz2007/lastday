@@ -597,7 +597,7 @@ def build_subs(tl, scenes, size=42, maxw=920, max_lines=2):
         sentences, cur = [], []
         for w in ws:
             cur.append(w)
-            if re.search(r'[.?!]$', w[0]):
+            if re.search(r'[.?!](\u00a0»)?$', w[0]):
                 sentences.append(cur); cur = []
         if cur:
             sentences.append(cur)
