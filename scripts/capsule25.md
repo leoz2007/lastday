@@ -1,6 +1,6 @@
 # Capsule 25 · Open source ou propriétaire
 
-Texte de la voix off (305 mots).
+Texte de la voix off (298 mots).
 
 ## Scène 1 · Accroche
 
@@ -8,11 +8,11 @@ Un modèle « ouvert » n'est pas forcément open source. Et choisir entre ouver
 
 ## Scène 2 · Les modèles à poids ouverts
 
-Un modèle à poids ouverts, c'est un modèle dont les paramètres appris, les poids, sont téléchargeables. Vous l'hébergez chez vous, ou chez un hébergeur de votre choix. Vous gardez le contrôle : vos données restent sur une infrastructure choisie, et vous pouvez l'adapter, par exemple par fine-tuning sur votre vocabulaire métier. Mais l'exploitation est à vous : serveurs, mises à jour, sécurité, montée en charge.
+Un modèle à poids ouverts, c'est un modèle dont les paramètres appris, les poids, sont téléchargeables. Vous l'hébergez chez vous, ou chez un hébergeur de votre choix. Vous gardez le contrôle de vos données, et vous pouvez l'adapter, par exemple par fine-tuning sur votre vocabulaire métier. Mais l'exploitation est à vous : serveurs, mises à jour, sécurité, montée en charge.
 
 ## Scène 3 · Les modèles propriétaires
 
-Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. Ces modèles sont souvent les plus capables, et il n'y a rien à opérer. Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. Et vos données sortent de chez vous : le contrat doit le couvrir.
+Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. Ils sont souvent les plus capables, et il n'y a rien à opérer. Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. Et vos données sortent de chez vous : le contrat doit le couvrir.
 
 ## Scène 4 · Open weights et licence
 
@@ -24,7 +24,7 @@ Côté produit, décidez sur des critères : sensibilité des données, capacit�
 
 ## Scène 6 · Questions à poser au cadrage
 
-Au cadrage, posez trois questions. Quelles données ont le droit de sortir de chez vous ? Qui exploitera le modèle, et avec quelles compétences ? Et que dit exactement la licence sur votre usage ?
+Au cadrage, posez trois questions. Quelles données ont le droit de sortir de chez vous ? Qui exploitera le modèle, et avec quelles compétences ? Et que dit la licence sur votre usage ?
 
 ## Scène 7 · À retenir
 

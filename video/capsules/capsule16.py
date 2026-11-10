@@ -92,7 +92,7 @@ def s3(c, t, S):
     card(c, t, ar, 550, 1020, 440, 410, LIGHT, 36, 'up')
     if prog(t, ar, 0.5) > 0.4:
         icon(c, t, ar + 0.1, 'db', 770, 1160, 100, RED)
-        jt = S.cue('jeu de test')
+        jt = ar + 0.4
         text_block(c, t, jt, 'Archives = *jeu de test*', 770, 1320, 32, 'Medium', DARK, RED, maxw=380,
                    align='center', max_lines=2)
 
@@ -133,13 +133,13 @@ def s5(c, t, S):
     for k, (s, kw) in enumerate(steps):
         at = S.cue(kw)
         x = 90 + k * 310
-        box(c, t, at, x, 1070, 280, 150, s, RED if k == 2 else LIGHT, WHITE if k == 2 else DARK, 30)
+        box(c, t, at, x, 1110, 280, 150, s, RED if k == 2 else LIGHT, WHITE if k == 2 else DARK, 30)
         if k < 2:
-            arrow(c, t, S.cue(steps[k + 1][1]) - 0.2, x + 285, 1145, x + 305, 1145, DARK, 5, 12)
+            arrow(c, t, S.cue(steps[k + 1][1]) - 0.2, x + 285, 1185, x + 305, 1185, DARK, 5, 12)
     if t >= cp:
-        small(c, 'Commencer petit', 90, 1060, 20, DARK)
+        small(c, 'Commencer petit', 90, 1085, 20, DARK)
     sm = S.cue('succès modeste')
-    chip(c, t, sm, 'Un premier succès modeste', 90, 1290, PLL, DARK, 34)
+    chip(c, t, sm, 'Un premier succès modeste', 90, 1310, PLL, DARK, 34)
 
 
 def s6(c, t, S):

@@ -40,7 +40,7 @@ def s1(c, t, S):
     if prog(t, v, 0.5) > 0.4:
         icon(c, t, v + 0.1, 'eye', 775, 940, 80, WHITE)
         reveal_plain(c, t, v + 0.2, "Qu'a-t-il vu ?", 775, 1070, 36, WHITE, 'Medium', 'center')
-    h = S.cue('au hasard')
+    h = S.cue('On devine')
     x = 90
     for k, s in enumerate(['Le prompt ?', 'Le document ?', 'Le modèle ?']):
         w = chip(c, t, h + k * 0.2, s, x, 1220, WHITE, DARK, 30)
@@ -50,7 +50,7 @@ def s1(c, t, S):
 def s2(c, t, S):
     header(c, t, S, 'La trace', "Tout ce qu'a vu *chaque appel*")
     a = S.cue("l'enregistrement")
-    card(c, t, a, 90, 540, 900, 720, LIGHT, 36, 'up')
+    card(c, t, a, 90, 540, 900, 640, LIGHT, 36, 'up')
     if prog(t, a, 0.5) > 0.4:
         label(c, t, a + 0.1, 'Trace · exemple illustratif', 140, 570, PLL, DARK, 22)
     rows = [('chat', 'Prompt', '« Résume ce dossier »', 'le prompt'),
@@ -67,7 +67,10 @@ def s2(c, t, S):
             small(c, key, 215, y + 9, 22, DARK)
         reveal_plain(c, t, at + 0.15, val, 450, y + 12, 32, DARK)
     b = S.cue('boîte noire')
-    chip(c, t, b, "La boîte noire de l'assistant", 90, 1300, RED, WHITE, 34)
+    idn = S.cue('un identifiant')
+    if prog(t, a, 0.5) > 0.4:
+        chip(c, t, idn, 'id : 7f3a-21', 990 - chip_width('id : 7f3a-21', 24), 1222, PL, DARK, 24)
+    chip(c, t, b, "La boîte noire de l'assistant", 90, 1220, RED, WHITE, 34)
 
 
 def s3(c, t, S):
@@ -96,7 +99,7 @@ def s3(c, t, S):
                     icon(c, t, at + 0.2, 'cross', 920, y + 60, 44, RED)
     if t >= o:
         small(c, 'Délai de rétractation', 190, 545, 20, DARK)
-    pr = S.cue('pour rien')
+    pr = S.cue('Sans trace, on aurait')
     card(c, t, pr, 90, 1180, 900, 230, DARK, 32, 'up')
     if prog(t, pr, 0.5) > 0.4:
         icon(c, t, pr + 0.1, 'target', 190, 1295, 70, RED)
@@ -120,6 +123,12 @@ def s4(c, t, S):
         if t >= min(at, a + 0.3 + k * 0.15) + 0.2:
             small(c, nm, x + 30, y + 50, 22, DARK)
             pts = spark(c, t, at, x + 40, y + 90, 360, 170, vals, col)
+            if k == 1:
+                sa = S.cue("seuils d'alerte")
+                if t >= sa:
+                    sy = y + 90 + 170 * 0.4
+                    c.drawLine(x + 40, sy, x + 40 + 360 * ease(prog(t, sa, 0.6)), sy, _paint(PL, 4))
+                    small(c, 'Seuil', x + 410, y + 50, 18, RED, align='right')
             if k == 1 and t >= md and pts:
                 px, py = pts[3]
                 dot(c, t, md, px, py, 18, RED)
@@ -189,15 +198,17 @@ SCENES = [
     dict(kind='content', draw=s2, name='La trace', text=(
         "Une trace, c'est l'enregistrement de chaque appel au modèle. "
         "On y garde le prompt, le contexte fourni, la réponse, les outils appelés, la durée et le coût. "
-        "C'est la boîte noire de votre assistant, un peu comme dans un avion.")),
+        "C'est la boîte noire de votre assistant, un peu comme dans un avion. "
+        "Chaque trace porte un identifiant, pour suivre une demande de bout en bout.")),
     dict(kind='content', draw=s3, name='Comprendre une erreur', text=(
         "Prenons une réponse fausse sur un délai de rétractation. On ouvre la trace. "
         "Le bon document n'était pas dans le contexte : c'est la recherche qui a échoué, pas le modèle. "
-        "Sans trace, on aurait réécrit le prompt pour rien.")),
+        "Sans trace, on aurait réécrit le prompt pour rien. La trace transforme une intuition en diagnostic.")),
     dict(kind='content', draw=s4, name='Les tableaux de bord', text=(
         "En regroupant les traces, on construit des tableaux de bord. "
         "Quatre courbes à suivre : la qualité, le coût, la latence et le taux d'échec. "
-        "Si le coût double un mardi, vous voyez quand, et vous retrouvez les appels en cause.")),
+        "Si le coût double un mardi, vous voyez quand, et vous retrouvez les appels en cause. "
+        "Fixez aussi des seuils d'alerte, pour être prévenu avant vos utilisateurs.")),
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, attention : les traces contiennent souvent des données personnelles, "
         "comme des noms, des adresses, des numéros de contrat. "

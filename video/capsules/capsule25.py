@@ -51,7 +51,7 @@ def s2(c, t, S):
     box(c, t, ch + 0.2, 600, 545, 390, 100, 'Vos serveurs', LIGHT, DARK, 32)
     arrow(c, t, hb, 400, 690, 590, 715, DARK, 6, 18)
     box(c, t, hb + 0.2, 600, 665, 390, 100, 'Un hébergeur choisi', LIGHT, DARK, 32)
-    pros = [('Contrôle', 'le contrôle'), ('Données chez vous', 'vos données restent'),
+    pros = [('Contrôle', 'le contrôle'), ('Données chez vous', 'de vos données'),
             ('Personnalisation', 'fine-tuning')]
     y = 820
     small(c, 'Atouts', 90, y, 22, DARK) if t >= S.cue('le contrôle') else None
@@ -203,12 +203,12 @@ SCENES = [
     dict(kind='content', draw=s2, name='Les modèles à poids ouverts', text=(
         "Un modèle à poids ouverts, c'est un modèle dont les paramètres appris, les poids, sont téléchargeables. "
         "Vous l'hébergez chez vous, ou chez un hébergeur de votre choix. "
-        "Vous gardez le contrôle : vos données restent sur une infrastructure choisie, "
+        "Vous gardez le contrôle de vos données, "
         "et vous pouvez l'adapter, par exemple par fine-tuning sur votre vocabulaire métier. "
         "Mais l'exploitation est à vous : serveurs, mises à jour, sécurité, montée en charge.")),
     dict(kind='content', draw=s3, name='Les modèles propriétaires', text=(
         "Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. "
-        "Ces modèles sont souvent les plus capables, et il n'y a rien à opérer. "
+        "Ils sont souvent les plus capables, et il n'y a rien à opérer. "
         "Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. "
         "Et vos données sortent de chez vous : le contrat doit le couvrir.")),
     dict(kind='content', draw=s4, name='Open weights et licence', text=(
@@ -225,7 +225,7 @@ SCENES = [
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Quelles données ont le droit de sortir de chez vous ? "
         "Qui exploitera le modèle, et avec quelles compétences ? "
-        "Et que dit exactement la licence sur votre usage ?")),
+        "Et que dit la licence sur votre usage ?")),
     dict(kind='end', draw=s7, text=(
         "À retenir : poids ouverts, c'est le contrôle, avec une exploitation à assumer. "
         "API propriétaire, c'est la simplicité, avec une dépendance. "
