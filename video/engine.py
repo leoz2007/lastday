@@ -866,7 +866,7 @@ def questions(c, t, S, title, items, y0=600, gap=36, size=36):
     icon(c, t, S.cue(items[0][1]), 'target', 940, 290, 70, RED)
 
 
-def ending(c, t, S, cap, cards, next_title=None):
+def ending(c, t, S, cap, cards, next_title=None, next_label='Prochaine capsule'):
     """Scène finale sur fond Red Poppy. cards = [(texte, mot_clé)]"""
     a = S.t0 + 0.1
     label(c, t, a, 'À retenir', 90, 250, WHITE, RED)
@@ -894,4 +894,4 @@ def ending(c, t, S, cap, cards, next_title=None):
         bw = 900
         box(c, t, at, 90, yy + 150, bw, 150, next_title, WHITE, RED, 40, 'Medium', 36, 'up')
         if prog(t, at, 0.5) > 0.6:
-            small(c, 'Prochaine capsule', 90, yy + 130, 22, WHITE)
+            small(c, next_label, 90, yy + 130, 22, WHITE)
