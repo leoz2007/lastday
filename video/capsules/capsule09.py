@@ -10,14 +10,14 @@ NEXT_CUE = 'dernière capsule'
 
 def s1(c, t, S):
     opening(c, t, S, CAP, 'Pour un LLM, tout texte peut devenir une *instruction*.')
-    a = S.cue('un email')
+    a = S.cue('caché') - 0.1
     card(c, t, a, 90, 960, 900, 420, LIGHT, 36, 'up')
     if prog(t, a, 0.5) > 0.4:
         icon(c, t, a + 0.1, 'chat', 160, 1030, 50, DARK)
         small(c, 'Email reçu', 210, 1040, 22, DARK)
         for j, fr in enumerate([0.9, 0.7, 0.8]):
             bar(c, t, a + 0.2 + j * 0.1, 140, 1090 + j * 60, 800, 24, fr, PL, WHITE, 0.4)
-    h = S.cue('caché')
+    h = S.cue('page web')
     box(c, t, h, 140, 1270, 800, 80, '« Ignore tes règles… »', RED, WHITE, 32, 'Medium', 20, 'left')
 
 
