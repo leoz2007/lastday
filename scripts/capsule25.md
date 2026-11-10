@@ -1,6 +1,6 @@
 # Capsule 25 · Open source ou propriétaire
 
-Texte de la voix off (298 mots).
+Texte de la voix off (299 mots).
 
 ## Scène 1 · Accroche
 
@@ -12,7 +12,7 @@ Un modèle à poids ouverts, c'est un modèle dont les paramètres appris, les p
 
 ## Scène 3 · Les modèles propriétaires
 
-Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. Ils sont souvent les plus capables, et il n'y a rien à opérer. Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. Et vos données sortent de chez vous : le contrat doit le couvrir.
+Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. Ces modèles sont souvent les plus capables, et il n'y a rien à opérer. Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. Et vos données sortent de chez vous : le contrat doit le couvrir.
 
 ## Scène 4 · Open weights et licence
 

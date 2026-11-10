@@ -210,7 +210,7 @@ SCENES = [
         "Mais l'exploitation est à vous : serveurs, mises à jour, sécurité, montée en charge.")),
     dict(kind='content', draw=s3, name='Les modèles propriétaires', text=(
         "Un modèle propriétaire s'utilise via une API, un service en ligne que votre application appelle. "
-        "Ils sont souvent les plus capables, et il n'y a rien à opérer. "
+        "Ces modèles sont souvent les plus capables, et il n'y a rien à opérer. "
         "Mais vous dépendez du fournisseur : ses prix, ses changements de version, ses conditions. "
         "Et vos données sortent de chez vous : le contrat doit le couvrir.")),
     dict(kind='content', draw=s4, name='Open weights et licence', text=(
