@@ -601,16 +601,19 @@ def build_subs(tl, scenes, size=42, maxw=920, max_lines=2):
                 sentences.append(cur); cur = []
         if cur:
             sentences.append(cur)
-        pending = []
+        pending = []  # phrases entières courtes, regroupées
         for sent in sentences:
             parts = split_balanced(sent)
-            for p in parts:
-                if pending and nlines(pending + p) <= max_lines:
-                    pending = pending + p
-                else:
-                    if pending:
-                        chunks.append(pending)
-                    pending = p
+            if len(parts) == 1 and pending and nlines(pending + parts[0]) <= max_lines:
+                pending = pending + parts[0]
+                continue
+            if pending:
+                chunks.append(pending)
+                pending = []
+            if len(parts) == 1:
+                pending = parts[0]
+            else:
+                chunks.extend(parts)
         if pending:
             chunks.append(pending)
     out = []
