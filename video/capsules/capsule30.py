@@ -235,7 +235,7 @@ SCENES = [
         "Une longue sortie allonge le temps total : pour un long courrier, l'attente est dans l'écriture.")),
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, la sortie est en général facturée plus cher que l'entrée. "
-        "La raison : l'entrée est lue en bloc, alors que chaque token de sortie demande sa propre étape de calcul. "
+        "Une raison : l'entrée est lue en bloc, alors que chaque token de sortie demande sa propre étape de calcul. "
         "Deux réflexes : afficher la réponse au fil de l'eau, et demander des réponses courtes.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Quel délai avant le premier mot l'utilisateur accepte-t-il ? "

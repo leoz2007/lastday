@@ -20,7 +20,7 @@ D'où deux mesures : le délai avant le premier token, puis le débit, en tokens
 
 ## Scène 5 · Ce que ça change côté produit
 
-Côté produit, la sortie est en général facturée plus cher que l'entrée. La raison : l'entrée est lue en bloc, alors que chaque token de sortie demande sa propre étape de calcul. Deux réflexes : afficher la réponse au fil de l'eau, et demander des réponses courtes.
+Côté produit, la sortie est en général facturée plus cher que l'entrée. Une raison : l'entrée est lue en bloc, alors que chaque token de sortie demande sa propre étape de calcul. Deux réflexes : afficher la réponse au fil de l'eau, et demander des réponses courtes.
 
 ## Scène 6 · Questions à poser au cadrage
 
