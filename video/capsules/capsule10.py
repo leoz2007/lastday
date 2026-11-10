@@ -82,7 +82,7 @@ def s3(c, t, S):
         x += w + 16
     w = chip(c, t, S.cue('ou haute') + 0.4, 'très urgent', x + 20, 990, PLL, DARK, 34)
     icon(c, t, S.cue('ou haute') + 0.6, 'cross', x + 20 + w + 40, 1020, 50, RED)
-    ct = S.cue('contraindre')
+    ct = S.cue('Plusieurs fournisseurs')
     box(c, t, ct, 90, 1120, 900, 120, 'API : réponse *contrainte* au schéma', LIGHT, DARK, 34, 'Medium', 30, 'left')
     v = S.cue('vérifier')
     card(c, t, v, 90, 1270, 900, 140, RED, 30, 'up')

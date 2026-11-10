@@ -572,6 +572,9 @@ def build_subs(tl, scenes, size=42, maxw=920, max_lines=2):
             if nlines(l) <= max_lines and nlines(r) <= max_lines:
                 diff = abs(sum(len(x[0]) for x in l) - sum(len(x[0]) for x in r))
                 score = diff - (60 if re.search(r'[,:;]$', l[-1][0]) else 0)
+                lt = ' '.join(x[0] for x in l)
+                if lt.count('«') > lt.count('»'):
+                    score += 200  # ne pas couper à l'intérieur d'une citation
                 if best is None or score < best[0]:
                     best = (score, [l, r])
         if best:
