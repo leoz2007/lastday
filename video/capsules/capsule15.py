@@ -120,11 +120,9 @@ def s4(c, t, S):
     if t >= ch:
         small(c, 'Passages utiles', 820, 930, 22, DARK, align='center')
     arrow(c, t, rt, 610, 1030, 700, 1100, RED, 6)
-    ul = S.cue('que ceux-là')
     box(c, t, rt + 0.3, 700, 1060, 290, 220, 'Prompt + *mars*', LIGHT, DARK, 34)
     if t >= S.cue('seulement lui'):
         small(c, 'Un seul échange', 845, 1340, 20, RED, align='center')
-    _ = ul
 
 
 def s5(c, t, S):
