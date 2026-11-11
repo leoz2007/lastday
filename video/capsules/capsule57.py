@@ -52,15 +52,15 @@ def s1(c, t, S):
         c.drawCircle(cx, cy, r, _paint(WHITE, 10))
     card(c, t, S.cue('Le modèle seul'), cx - 90, cy - 90, 180, 180, RED, 90, 'pop')
     icon(c, t, S.cue('Le modèle seul') + 0.1, 'brain', cx, cy, 90, WHITE)
-    acts = [('Lire', 'lit les fichiers', 'doc', 220, 880), ('Commander', 'lance les commandes', 'code', 860, 880),
-            ('Éditer', 'applique les éditions', 'gear', 540, 1380)]
+    acts = [('Lire', 'lit les fichiers', 'doc', 200, 1080), ('Commander', 'lance les commandes', 'code', 880, 1080),
+            ('Éditer', 'applique les éditions', 'gear', 540, 1370)]
     for s, kw, ic, x, y in acts:
         at = S.cue(kw)
         w = chip_width(s, 30)
         chip(c, t, at, s, x - w / 2, y - 26, WHITE, DARK, 30)
     dv = S.cue('chaque matin')
     if t >= dv:
-        icon(c, t, dv, 'user', 860, 1330, 50, WHITE)
+        icon(c, t, dv, 'user', 880, 1360, 50, WHITE)
 
 
 def s2(c, t, S):
@@ -98,8 +98,8 @@ def s3(c, t, S):
     if prog(t, a + 0.2, 0.5) > 0.4:
         small(c, 'Endpoint interne', 580, 595, 18, DARK, align='center')
         f = S.cue('format')
-        chip(c, t, f + 0.3, 'Format OpenAI', 580 - chip_width('Format OpenAI', 24) / 2, 615, WHITE, DARK, 24)
-        chip(c, t, f + 0.6, 'Format Anthropic', 580 - chip_width('Format Anthropic', 24) / 2, 672, WHITE, DARK, 24)
+        chip(c, t, f + 0.3, 'Format OpenAI', 580 - chip_width('Format OpenAI', 26) / 2, 612, WHITE, DARK, 26)
+        chip(c, t, f + 0.6, 'Format Anthropic', 580 - chip_width('Format Anthropic', 26) / 2, 670, WHITE, DARK, 26)
     m = S.cue('votre modèle interne')
     arrow(c, t, m, 740, 635, 810, 635, DARK, 6, 18)
     card(c, t, m + 0.1, 820, 560, 170, 150, RED, 30, 'pop')
@@ -107,13 +107,13 @@ def s3(c, t, S):
     ap = S.cue("L'API")
     if t >= ap:
         reveal_plain(c, t, ap, "API : l'interface entre deux logiciels", 90, 800, 30, DARK, 'Medium')
-    cc = S.cue("n'a pas été conçu")
+    cc = S.cue('Testez-le aussi')
     card(c, t, cc, 90, 860, 900, 540, LIGHT, 36, 'up')
     if prog(t, cc, 0.5) > 0.4:
         small(c, 'Même harness, autre modèle · exemple', 140, 920, 20, DARK)
         rows = [('Modèle prévu', 'check', RED, 'Consignes suivies'), ('Autre modèle', 'cross', DARK, 'Consignes mal suivies')]
         for k, (s, ic, col, res) in enumerate(rows):
-            at = cc + 0.3 + k * 0.6 if k == 0 else S.cue('mal passer')
+            at = cc + 0.3 if k == 0 else S.cue("n'a pas été conçu")
             y = 970 + k * 200
             card(c, t, at, 140, y, 800, 170, WHITE, 28, 'left')
             if prog(t, at, 0.5) > 0.4:
@@ -137,15 +137,15 @@ def s4(c, t, S):
             ('check', 'Outils autorisés', "outils autorisés"), ('doc', 'Fichiers de règles', 'fichiers de règles')]
     for k, (ic, s, kw) in enumerate(rows):
         at = S.cue(kw)
-        y = 910 + k * 125
-        card(c, t, at, 90, y, 900, 105, LIGHT, 28, 'left')
+        y = 905 + k * 118
+        card(c, t, at, 90, y, 900, 100, LIGHT, 28, 'left')
         if prog(t, at, 0.5) > 0.4:
-            icon(c, t, at + 0.1, ic, 160, y + 52, 46, RED if k == 3 else DARK)
-            reveal_plain(c, t, at + 0.15, s, 220, y + 64, 32, DARK, 'Medium')
+            icon(c, t, at + 0.1, ic, 160, y + 50, 46, RED if k == 3 else DARK)
+            reveal_plain(c, t, at + 0.15, s, 220, y + 62, 32, DARK, 'Medium')
             if k == 3:
                 x = 590
                 for j, f in enumerate(['CLAUDE.md', 'AGENTS.md']):
-                    w = chip(c, t, at + 0.4 + j * 0.15, f, x, y + 28, WHITE, DARK, 26)
+                    w = chip(c, t, at + 0.4 + j * 0.15, f, x, y + 27, WHITE, DARK, 26)
                     x += w + 14
     lv = S.cue("livret d'accueil")
     if t >= lv:
