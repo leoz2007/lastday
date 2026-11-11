@@ -36,7 +36,7 @@ def s1(c, t, S):
                     ('Effacer un fichier', ef, RED if t >= ef else WHITE, WHITE if t >= ef else DARK),
                     ], 90, 900, 32, 50, color=WHITE)
     if t >= ef + 0.3:
-        icon(c, t, ef + 0.3, 'cross', 940, 930, 50, RED)
+        icon(c, t, ef + 0.3, 'cross', 860, 930, 50, RED)
     da = S.cue("dizaines d'appels")
     if t >= da - 0.1:
         small(c, 'Appels inutiles', 90, 1070, 22, WHITE)
@@ -108,13 +108,14 @@ def s3(c, t, S):
         cb = S.cue('une copie de la base')
         box(c, t, cb, 520, 850, 420, 150, 'Copie de la *base*', WHITE, DARK, 30)
         arrow(c, t, cb + 0.2, 330, 850, 510, 920, DARK, 5, 14)
-    pr = S.cue('la production')
+    pr = S.cue('une erreur de')
     card(c, t, pr, 90, 1190, 900, 240, LIGHT, 32, 'up')
     if prog(t, pr, 0.5) > 0.4:
         icon(c, t, pr + 0.1, 'lock', 200, 1310, 80, DARK)
         plain(c, 'Production', 270, 1300, 36, DARK, 'Medium')
-        reveal_plain(c, t, pr + 0.3, 'Jamais touchée', 270, 1360, 30, RED, 'Medium')
-        icon(c, t, pr + 0.3, 'shield', 890, 1310, 90, RED)
+        nt = S.cue('ne touche jamais')
+        reveal_plain(c, t, nt, 'Jamais touchée', 270, 1360, 30, RED, 'Medium')
+        icon(c, t, nt, 'shield', 890, 1310, 90, RED)
 
 
 RUNS = [1, 1, 0, 1, 1, 1, 0, 1, 0, 1]
@@ -223,7 +224,7 @@ SCENES = [
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, les benchmarks publics, des tests de référence partagés, donnent une première idée. "
         "Mais leurs tâches peuvent être loin des vôtres, "
-        "et les modèles les ont parfois déjà vues pendant leur entraînement. "
+        "et les modèles les ont peut-être déjà vues pendant leur entraînement. "
         "Construisez vos propres scénarios, tirés de cas réels, chacun avec son critère de réussite.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Qu'est-ce qui prouve que la tâche est faite ? "

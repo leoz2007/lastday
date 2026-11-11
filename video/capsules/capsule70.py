@@ -231,14 +231,14 @@ def s7(c, t, S):
 
 SCENES = [
     dict(kind='open', draw=s1, text=(
-        "Une base vectorielle ne compare pas votre question à tous ses vecteurs. "
+        "En général, une base vectorielle ne compare pas votre question à tous ses vecteurs. "
         "Elle n'en examine qu'une petite partie, et accepte de rater parfois le plus proche. "
         "C'est voulu, pour aller vite.")),
     dict(kind='content', draw=s2, name='Le problème : tout comparer est trop lent', text=(
         "Rappel : chaque document devient un vecteur, une liste de nombres qui représente son sens. "
         "Chercher, c'est trouver les vecteurs les plus proches de la question. "
         "Les comparer un par un, sur des millions, est trop lent. "
-        "D'où un index approximatif : il cherche les plus proches voisins, vite, mais sans garantie.")),
+        "D'où un index approximatif : il cherche les plus proches voisins, vite, sans garantie.")),
     dict(kind='content', draw=s3, name='Deux idées : graphe et groupes', text=(
         "Première idée : un graphe. Chaque vecteur est relié à quelques voisins. "
         "On part d'un point et on avance de proche en proche, comme on demande son chemin. "
@@ -252,7 +252,7 @@ SCENES = [
     dict(kind='content', draw=s5, name='Ce que ça change côté produit', text=(
         "Côté produit, surveillez les filtres sur les métadonnées, comme les droits ou les dates. "
         "Mal combiné, un filtre appliqué après la recherche peut ne laisser presque rien. "
-        "Les droits doivent s'appliquer dans la recherche elle-même. "
+        "Les droits doivent s'appliquer dans la recherche. "
         "Et un document supprimé ne doit plus remonter.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Quel rappel mesure-t-on, sur nos données ? "

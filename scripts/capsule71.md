@@ -20,7 +20,7 @@ Autre piège : le même agent, sur la même tâche, ne fait pas toujours la mêm
 
 ## Scène 5 · Ce que ça change côté produit
 
-Côté produit, les benchmarks publics, des tests de référence partagés, donnent une première idée. Mais leurs tâches peuvent être loin des vôtres, et les modèles les ont parfois déjà vues pendant leur entraînement. Construisez vos propres scénarios, tirés de cas réels, chacun avec son critère de réussite.
+Côté produit, les benchmarks publics, des tests de référence partagés, donnent une première idée. Mais leurs tâches peuvent être loin des vôtres, et les modèles les ont peut-être déjà vues pendant leur entraînement. Construisez vos propres scénarios, tirés de cas réels, chacun avec son critère de réussite.
 
 ## Scène 6 · Questions à poser au cadrage
 
