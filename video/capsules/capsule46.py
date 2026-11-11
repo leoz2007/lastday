@@ -141,8 +141,8 @@ def s4(c, t, S):
         card(c, t, at, x, y, w, 170, RED if hot else LIGHT, 30, 'pop')
         if prog(t, at, 0.5) > 0.4:
             fg = WHITE if hot else DARK
-            icon(c, t, at + 0.1, ic, x + 70, y + 85, 56, fg)
-            plain(c, s, x + 130, y + 97, 32, fg, 'Medium')
+            icon(c, t, at + 0.1, ic, x + 60, y + 85, 52, fg)
+            plain(c, s, x + 110, y + 96, 30, fg, 'Medium')
 
 
 def s5(c, t, S):
@@ -185,11 +185,11 @@ def s7(c, t, S):
 SCENES = [
     dict(kind='open', draw=s1, text=(
         "Beaucoup de prototypes d'IA brillent en démonstration, puis s'arrêtent là. "
-        "Le POC, la preuve de concept, montre que c'est possible. Pas que ça tient en production.")),
+        "Le POC, la preuve de concept, montre que c'est possible. Pas que ça tient en production. Et ce passage se prépare dès le premier jour.")),
     dict(kind='content', draw=s2, name='Une démo trop facile', text=(
         "Pourquoi ? D'abord, la démo tourne sur des cas faciles, choisis à la main. "
         "Personne ne mesure la qualité. Et les données sont propres, alors que les vraies sont incomplètes, "
-        "mal scannées ou contradictoires.")),
+        "mal scannées ou contradictoires. Résultat : ce qui impressionnait en réunion peut décevoir dès les premiers vrais utilisateurs.")),
     dict(kind='content', draw=s3, name='Les sujets lourds découverts trop tard', text=(
         "Ensuite, les sujets lourds arrivent trop tard. "
         "Le coût à grande échelle, découvert au moment du budget. "

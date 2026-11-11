@@ -37,11 +37,13 @@ def s1(c, t, S):
         small(c, 'Petit modèle', 760, 1185, 22, WHITE, align='center')
     bar(c, t, g + 0.3, 120, 1215, 400, 26, 0.9, WHITE, DARK)
     bar(c, t, g + 0.5, 560, 1215, 400, 26, 0.88, RED, DARK)
+    if t >= g + 0.6:
+        small(c, 'Qualité · illustratif', 120, 1290, 18, WHITE)
     for s, kw, x in [('Moins cher', 'moins cher', 560), ('Plus vite', 'plus vite', 780)]:
-        chip(c, t, S.cue(kw), s, x, 1290, WHITE, DARK, 28)
+        chip(c, t, S.cue(kw), s, x, 1300, WHITE, DARK, 28)
     sa = S.cue('sur sa tâche')
     if t >= sa:
-        reveal_plain(c, t, sa, 'Sur sa tâche seulement', 120, 1330, 30, RED, 'Medium')
+        reveal_plain(c, t, sa, 'Sur sa tâche seulement', 120, 1420, 30, RED, 'Medium')
 
 
 def s2(c, t, S):

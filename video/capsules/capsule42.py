@@ -29,8 +29,8 @@ def s1(c, t, S):
         chip(c, t, at + 0.2, s, cx, cy + 100, WHITE, DARK, 28, align='center')
     mc = S.cue('bien moins cher')
     if t >= mc:
-        icon(c, t, mc, 'coin', 860, 1350, 50, RED)
-        reveal_plain(c, t, mc + 0.1, 'Souvent moins cher', 810, 1362, 28, WHITE, 'Medium', 'right')
+        icon(c, t, mc, 'coin', 660, 1300, 50, RED)
+        reveal_plain(c, t, mc + 0.1, 'Souvent moins cher', 700, 1312, 28, WHITE, 'Medium')
 
 
 def s2(c, t, S):
@@ -82,11 +82,13 @@ def s3(c, t, S):
             small(c, 'Facture', 670, 890, 18, DARK, align='center')
         nt = S.cue('Un nouveau ticket')
         dot(c, t, nt, 420, 760, 18, PL)
+        if nt <= t < S.cue("l'étiquette des plus proches") + 0.4:
+            small(c, 'Nouveau ticket', 420, 830, 18, DARK, align='center')
         pr = S.cue("l'étiquette des plus proches")
         arrow(c, t, pr, 400, 760, 320, 750, RED, 4, 12)
         if t >= pr + 0.4:
             dot(c, t, pr + 0.4, 420, 760, 18, RED)
-            reveal_plain(c, t, pr + 0.4, 'Livraison', 940, 770, 32, RED, 'Medium', 'right')
+            reveal_plain(c, t, pr + 0.4, 'Livraison', 420, 840, 28, RED, 'Medium', 'center')
     rg = S.cue('regrouper')
     card(c, t, rg, 90, 970, 900, 460, LIGHT, 32, 'up')
     if prog(t, rg, 0.5) > 0.4:
@@ -171,7 +173,7 @@ def s5(c, t, S):
         ps = S.cue('sembler proches')
         if t >= ps:
             plain(c, '=', 540, 1130, 60, DARK, 'Medium', 'center')
-        op = S.cue('opposée')
+        op = S.cue('alors que')
         if t >= op:
             icon(c, t, op, 'cross', 540, 1110, 60, RED)
             reveal_plain(c, t, op + 0.1, 'Intentions opposées', 540, 1290, 34, RED, 'Medium', 'center')

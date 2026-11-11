@@ -1,14 +1,14 @@
 # Capsule 46 · Du POC à la production
 
-Texte de la voix off (262 mots).
+Texte de la voix off (285 mots).
 
 ## Scène 1 · Accroche
 
-Beaucoup de prototypes d'IA brillent en démonstration, puis s'arrêtent là. Le POC, la preuve de concept, montre que c'est possible. Pas que ça tient en production.
+Beaucoup de prototypes d'IA brillent en démonstration, puis s'arrêtent là. Le POC, la preuve de concept, montre que c'est possible. Pas que ça tient en production. Et ce passage se prépare dès le premier jour.
 
 ## Scène 2 · Une démo trop facile
 
-Pourquoi ? D'abord, la démo tourne sur des cas faciles, choisis à la main. Personne ne mesure la qualité. Et les données sont propres, alors que les vraies sont incomplètes, mal scannées ou contradictoires.
+Pourquoi ? D'abord, la démo tourne sur des cas faciles, choisis à la main. Personne ne mesure la qualité. Et les données sont propres, alors que les vraies sont incomplètes, mal scannées ou contradictoires. Résultat : ce qui impressionnait en réunion peut décevoir dès les premiers vrais utilisateurs.
 
 ## Scène 3 · Les sujets lourds découverts trop tard
 
