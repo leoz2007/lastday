@@ -6,6 +6,7 @@ Capsules vidéo verticales (1080×1920, 30 fps) pour donner un vernis technique 
 - saison 2 : capsules 11 à 28. Dans chaque module, `SERIES = (11, 28)` et `SERIES_LABEL = 'Saison 2'`. Le brief de rédaction commun est dans `video/BRIEF_S2.md`.
 - saison 3 : capsules 29 à 38, sujets plus techniques (GraphRAG, inférence, RAG avancé, attention, entraînement, LoRA, données synthétiques, IA sur site, agents en production). `SERIES = (29, 38)`, brief dans `video/BRIEF_S3.md`.
 - saison 4 : capsules 39 à 54, industrialisation (text-to-SQL, agents vocaux, context engineering, embeddings, extraction en masse, agents sur ordinateur, petits modèles, POC vers production, LLMOps, A/B testing, guardrails, red teaming, propriété intellectuelle, contrats, gouvernance, planification). `SERIES = (39, 54)`, brief dans `video/BRIEF_S4.md`.
+- saison spéciale : capsules 55 à 65, déployer des agents de code IA « on premise » (souveraineté, modèles et inférence, harness, LLM hub, contexte et outils, sécurité, FinOps, observabilité, qualité, gouvernance, adoption). `SERIES = (55, 65)`, brief dans `video/BRIEF_SPE.md`. Par exception, les noms d'outils y sont cités, comme exemples à date.
 
 | Fichier | Contenu |
 |---|---|
