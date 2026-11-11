@@ -64,7 +64,7 @@ def s3(c, t, S):
             fg = DARK if k < 2 else WHITE
             icon(c, t, at + 0.1, ic, 190, y + 100, 80, RED if k < 2 else WHITE)
             reveal_plain(c, t, at + 0.2, nm, 280, y + 85, 40, fg, 'Medium')
-            reveal_plain(c, t, at + 0.4, ex, 280, y + 145, 30, fg, 'Light')
+            reveal_plain(c, t, at + 0.4, ex, 280, y + 145, 28, fg, 'Medium')
     ox = S.cue('Mélangez les regards')
     if t >= ox:
         x = 90
@@ -128,8 +128,6 @@ def s5(c, t, S):
             icon(c, t, at + 0.3, 'bolt', x, 870, 60, RED)
             if t >= at + 0.3:
                 small(c, 'Red teaming', x, 960, 18, RED, align='center')
-        if t >= a:
-            small(c, 'Lancement', 140, 1050, 18, DARK)
     tc = S.cue('le temps de corriger')
     card(c, t, tc, 90, 1140, 900, 290, RED, 36, 'up')
     if prog(t, tc, 0.5) > 0.4:
@@ -137,7 +135,7 @@ def s5(c, t, S):
         reveal_plain(c, t, tc + 0.2, 'Du temps pour corriger', 260, 1270, 38, WHITE, 'Medium')
         lc = S.cue('date de lancement')
         if t >= lc:
-            reveal_plain(c, t, lc, 'avant la date de lancement', 260, 1330, 30, WHITE, 'Light')
+            reveal_plain(c, t, lc, 'avant la date de lancement', 260, 1330, 30, WHITE, 'Medium')
 
 
 def s6(c, t, S):
