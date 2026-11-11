@@ -54,25 +54,29 @@ def s1(c, t, S):
 
 def s2(c, t, S):
     header(c, t, S, 'Le problème', 'Un par un, *trop lent*')
-    up = S.cue('un par un')
-    card(c, t, up, 90, 540, 900, 300, LIGHT, 32, 'up')
-    if prog(t, up, 0.5) > 0.4:
-        small(c, 'Comparer la question à chaque vecteur', 140, 600, 20, DARK)
-        chip(c, t, up + 0.1, 'Question', 140, 640, RED, WHITE, 28)
-        for k in range(13):
-            col = DARK if t >= up + 0.3 + k * 0.12 else PL
-            rrect(c, 360 + k * 42, 652, 28, 28, 8, col if t >= up + 0.2 else LIGHT)
-        if t >= up + 0.3:
-            plain(c, '...', 950, 680, 34, DARK, 'Medium', 'right')
+    dv = S.cue('devient un vecteur')
+    card(c, t, dv, 90, 540, 900, 340, LIGHT, 32, 'up')
+    if prog(t, dv, 0.5) > 0.4:
+        small(c, 'Un document, un vecteur', 140, 600, 20, DARK)
+        icon(c, t, dv + 0.1, 'doc', 175, 660, 56, DARK)
+        arrow(c, t, dv + 0.3, 220, 660, 290, 660, DARK, 5, 14)
+        chip(c, t, dv + 0.5, '0,12  -0,48  0,91  ...', 310, 632, WHITE, DARK, 26)
+        up = S.cue('un par un')
+        if t >= up - 0.25:
+            chip(c, t, up, 'Question', 140, 730, RED, WHITE, 28)
+            for k in range(13):
+                col = DARK if t >= up + 0.3 + k * 0.12 else PL
+                rrect(c, 360 + k * 42, 742, 28, 28, 8, col)
+            plain(c, '...', 950, 770, 34, DARK, 'Medium', 'right')
         ml = S.cue('des millions')
         if t >= ml:
-            reveal_plain(c, t, ml, 'Des millions de comparaisons', 140, 790, 30, RED, 'Medium')
+            reveal_plain(c, t, ml, 'Des millions de comparaisons', 140, 850, 30, RED, 'Medium')
     ia = S.cue('index approximatif')
-    card(c, t, ia, 90, 870, 900, 560, LIGHT, 32, 'up')
+    card(c, t, ia, 90, 910, 900, 520, LIGHT, 32, 'up')
     if prog(t, ia, 0.5) > 0.4:
-        small(c, 'Index approximatif', 140, 930, 20, DARK)
-        pts = scatter(40, 3, 160, 980, 760, 360)
-        q = (560, 1160)
+        small(c, 'Index approximatif', 140, 970, 20, DARK)
+        pts = scatter(40, 3, 160, 1010, 760, 330)
+        q = (560, 1180)
         for k, p in enumerate(pts):
             if near(p, q, 30):
                 continue
