@@ -128,7 +128,7 @@ def s4(c, t, S):
         if t >= gr - 1.5:
             plain(c, 'KV cache : ce qui est déjà lu', 940, 790, 26, RED, 'Medium', 'right')
         if t >= us:
-            for k in range(6):
+            for k in range(5):
                 icon(c, t, us + k * 0.1, 'user', 170 + k * 70, 880, 40, DARK)
             small(c, 'Un cache par requête en cours', 940, 890, 18, DARK, align='right')
     rows = [('Mémoire', 'leur mémoire'), ('Contexte', 'taille du contexte'),

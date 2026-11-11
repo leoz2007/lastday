@@ -250,7 +250,7 @@ SCENES = [
         "Côté produit, posez des garde-fous : un budget mensuel par équipe ; "
         "des alertes, par exemple à quatre-vingts pour cent ; "
         "un plafond par session, pour qu'un agent qui boucle s'arrête à temps. "
-        "Et montrez à chacun sa consommation , pour changer les habitudes.")),
+        "Et montrez à chacun sa consommation, pour changer les habitudes.")),
     dict(kind='content', draw=s6, name='Questions à poser au cadrage', text=(
         "Au cadrage, posez trois questions. Des GPU à nous, ou le paiement à l'usage ? "
         "Qui voit le coût, et qui le paie ? "

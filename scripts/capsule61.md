@@ -1,6 +1,6 @@
 # Capsule 61 · FinOps de l'IA de code
 
-Texte de la voix off (298 mots).
+Texte de la voix off (297 mots).
 
 ## Scène 1 · Accroche
 
@@ -20,7 +20,7 @@ Sur site, suivez le taux d'utilisation des GPU. Des GPU payés qui dorment la nu
 
 ## Scène 5 · Ce que ça change côté produit
 
-Côté produit, posez des garde-fous : un budget mensuel par équipe ; des alertes, par exemple à quatre-vingts pour cent ; un plafond par session, pour qu'un agent qui boucle s'arrête à temps. Et montrez à chacun sa consommation , pour changer les habitudes.
+Côté produit, posez des garde-fous : un budget mensuel par équipe ; des alertes, par exemple à quatre-vingts pour cent ; un plafond par session, pour qu'un agent qui boucle s'arrête à temps. Et montrez à chacun sa consommation, pour changer les habitudes.
 
 ## Scène 6 · Questions à poser au cadrage
 
