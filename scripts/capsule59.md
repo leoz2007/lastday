@@ -12,7 +12,7 @@ Ces portes, ce sont souvent des serveurs MCP internes. Rappel : MCP est un stand
 
 ## Scène 3 · Recherche et RAG sur le code et la documentation
 
-Ensuite, la recherche. Le code et la documentation d'architecture sont trop grandes pour tout donner au modèle. On indexe, puis on retrouve les passages utiles : c'est le RAG, la génération augmentée par recherche. Exemple : l'agent retrouve la règle de nommage des services avant d'en créer un.
+Ensuite, la recherche. Le code et la documentation d'architecture sont trop volumineux pour tout donner au modèle. On indexe, puis on retrouve les passages utiles : c'est le RAG, la génération augmentée par recherche. Exemple : l'agent retrouve la règle de nommage des services avant d'en créer un.
 
 ## Scène 4 · Un miroir de paquets plutôt qu'Internet
 

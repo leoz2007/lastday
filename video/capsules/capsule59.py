@@ -95,7 +95,7 @@ def s2(c, t, S):
 
 def s3(c, t, S):
     header(c, t, S, 'La recherche', 'Retrouver *le bon passage*')
-    tg = S.cue('trop grandes')
+    tg = S.cue('trop volumineux')
     card(c, t, tg, 90, 540, 900, 380, LIGHT, 36, 'up')
     ix = S.cue('On indexe')
     rt = S.cue('passages utiles')
@@ -221,7 +221,7 @@ SCENES = [
         "Un serveur pour Git, un pour les tickets, un pour la documentation, "
         "un pour la CMDB, le référentiel des composants du système d'information, et d'autres pour vos API internes.")),
     dict(kind='content', draw=s3, name='Recherche et RAG sur le code et la documentation', text=(
-        "Ensuite, la recherche. Le code et la documentation d'architecture sont trop grandes "
+        "Ensuite, la recherche. Le code et la documentation d'architecture sont trop volumineux "
         "pour tout donner au modèle. On indexe, puis on retrouve les passages utiles : "
         "c'est le RAG, la génération augmentée par recherche. "
         "Exemple : l'agent retrouve la règle de nommage des services avant d'en créer un.")),

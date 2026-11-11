@@ -159,7 +159,7 @@ def s5(c, t, S):
         small(c, 'Dette', 600, 600, 20, DARK)
         for k in range(5):
             at = de + 0.3 + k * 0.2
-            card(c, t, at, 640 - (k % 2) * 20, 960 - k * 70, 280, 56, DARK if k % 2 else PL, 12, 'up')
+            card(c, t, at, 640 - (k % 2) * 20, 930 - k * 68, 280, 56, DARK if k % 2 else PL, 12, 'up')
         dp = S.cue('dupliqué')
         if t >= dp:
             small(c, 'Dupliqué, obscur', 775, 1030, 18, DARK, align='center')
@@ -173,6 +173,8 @@ def s5(c, t, S):
             vbar(c, t, av + 0.2 + k * 0.12, x, 1370, 90, h, WHITE if k >= 3 else PL)
         if t >= av + 0.3:
             rrect(c, 528, 1190, 4, 190, 2, WHITE)
+            small(c, 'Avant', 140, 1398, 16, WHITE)
+            small(c, 'Après', 950, 1398, 16, WHITE, align='right')
 
 
 def s6(c, t, S):
